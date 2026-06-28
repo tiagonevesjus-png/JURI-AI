@@ -31,6 +31,8 @@
             <a href="{{ u_tar }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_tar %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">✅ <span>Tarefas</span></a>
             <a href="{{ u_fin }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_fin %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">💰 <span>Financeiro</span></a>
             <a href="{{ u_rel }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_rel %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">📈 <span>Relatórios</span></a>
+            {% url 'assistente' as u_ia %}
+            <a href="{{ u_ia }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_ia %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">🤖 <span>Assistente IA</span></a>
             {% if is_admin %}
             <a href="{% url 'acessos' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == '/acessos/' %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">🔐 <span>Controle de acessos</span></a>
             {% endif %}

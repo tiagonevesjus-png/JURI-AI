@@ -142,3 +142,12 @@ MESSAGE_TAGS = {
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
+
+# ---------------------------------------------------------------------------
+# Configuração da camada de IA (OCR/RAG)
+# Defina OPENAI_API_KEY no ambiente para habilitar o assistente jurídico.
+# ---------------------------------------------------------------------------
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+IA_EMBEDDING_MODEL = os.environ.get('IA_EMBEDDING_MODEL', 'text-embedding-3-small')
+IA_CHAT_MODEL = os.environ.get('IA_CHAT_MODEL', 'gpt-4o-mini')
+LANCEDB_PATH = os.environ.get('LANCEDB_PATH', os.path.join(BASE_DIR, 'lancedb'))

@@ -54,13 +54,16 @@ O Juri-AI une segurança, automação e inteligência, transformando dados jurí
 
 ---
 
-## 🧠 Funcionalidades em Desenvolvimento
+## 🤖 Assistente de IA (app `ia`)
 
-- 🔍 **OCR automático** para leitura de documentos.
-- 📝 **Conversão de arquivos** para Markdown.
-- 🤖 **Pipeline de IA** para análise jurídica.
-- 🔗 **RAG (Retrieval-Augmented Generation)** para busca inteligente em documentos.
-- ⏱️ **Processamento assíncrono** com filas de tarefas.
+Pipeline de IA que processa cada documento enviado e permite consultá-los em linguagem natural:
+
+- 🔍 **OCR / Conversão para Markdown** via `docling` (com fallback de leitura simples).
+- 🔗 **RAG (Retrieval-Augmented Generation)** — o conteúdo é dividido em trechos, vetorizado com *embeddings* da OpenAI e indexado no `LanceDB`.
+- 💬 **Assistente Jurídico** (`/ia/assistente/`) — faça perguntas sobre os documentos e receba respostas com os trechos-fonte citados.
+- ⏱️ **Processamento assíncrono** com `django-q` (OCR → indexação encadeados no upload).
+
+> Configure a variável de ambiente `OPENAI_API_KEY` para habilitar a IA. Variáveis opcionais: `IA_EMBEDDING_MODEL`, `IA_CHAT_MODEL`, `LANCEDB_PATH`. Sem elas, o sistema continua funcionando normalmente e o assistente exibe um aviso de configuração.
 
 ---
 
