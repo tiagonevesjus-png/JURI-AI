@@ -8,9 +8,11 @@
 
     {% if not ia_configurada %}
         <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-            ⚠️ A IA ainda não está configurada. Defina a variável de ambiente <code class="font-mono">OPENAI_API_KEY</code>
-            e instale as dependências de IA (<code class="font-mono">docling</code>, <code class="font-mono">openai</code>,
-            <code class="font-mono">lancedb</code>) para habilitar o assistente.
+            ⚠️ A IA ainda não está totalmente configurada. As respostas usam o <strong>Claude</strong>
+            (defina <code class="font-mono">ANTHROPIC_API_KEY</code>) e a busca nos documentos usa embeddings
+            (defina <code class="font-mono">OPENAI_API_KEY</code>). Instale também as dependências de IA
+            (<code class="font-mono">anthropic</code>, <code class="font-mono">docling</code>,
+            <code class="font-mono">openai</code>, <code class="font-mono">lancedb</code>).
         </div>
     {% endif %}
 

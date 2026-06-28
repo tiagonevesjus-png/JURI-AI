@@ -44,8 +44,8 @@ def rag_documentos(instance_id):
         logger.warning('Documento %s não encontrado para indexação.', instance_id)
         return instance_id
 
-    if not services.ia_configurada():
-        logger.info('IA não configurada; pulando indexação do documento %s.', instance_id)
+    if not services.embeddings_configuradas():
+        logger.info('Embeddings não configuradas; pulando indexação do documento %s.', instance_id)
         return instance_id
 
     try:

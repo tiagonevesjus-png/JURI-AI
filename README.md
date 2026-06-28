@@ -60,10 +60,14 @@ Pipeline de IA que processa cada documento enviado e permite consultá-los em li
 
 - 🔍 **OCR / Conversão para Markdown** via `docling` (com fallback de leitura simples).
 - 🔗 **RAG (Retrieval-Augmented Generation)** — o conteúdo é dividido em trechos, vetorizado com *embeddings* da OpenAI e indexado no `LanceDB`.
-- 💬 **Assistente Jurídico** (`/ia/assistente/`) — faça perguntas sobre os documentos e receba respostas com os trechos-fonte citados.
+- 💬 **Assistente Jurídico** (`/ia/assistente/`) — faça perguntas sobre os documentos; as respostas são geradas pelo **Claude (Anthropic)** com os trechos-fonte citados.
 - ⏱️ **Processamento assíncrono** com `django-q` (OCR → indexação encadeados no upload).
 
-> Configure a variável de ambiente `OPENAI_API_KEY` para habilitar a IA. Variáveis opcionais: `IA_EMBEDDING_MODEL`, `IA_CHAT_MODEL`, `LANCEDB_PATH`. Sem elas, o sistema continua funcionando normalmente e o assistente exibe um aviso de configuração.
+> **Configuração da IA:**
+> - `ANTHROPIC_API_KEY` — geração das respostas com o Claude (opcional: `IA_CLAUDE_MODEL`, padrão `claude-opus-4-8`).
+> - `OPENAI_API_KEY` — embeddings para a busca nos documentos, pois a Anthropic não oferece endpoint de embeddings (opcional: `IA_EMBEDDING_MODEL`, `LANCEDB_PATH`).
+>
+> Sem essas chaves o sistema continua funcionando normalmente e o assistente exibe um aviso de configuração.
 
 ---
 

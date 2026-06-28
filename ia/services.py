@@ -27,9 +27,19 @@ def _conf(nome, padrao=''):
     return getattr(settings, nome, os.environ.get(nome, padrao))
 
 
-def ia_configurada():
-    """Retorna True se há chave de API configurada para usar a IA."""
+def embeddings_configuradas():
+    """RAG usa embeddings da OpenAI (a Anthropic não oferece endpoint de embeddings)."""
     return bool(_conf('OPENAI_API_KEY'))
+
+
+def geracao_configurada():
+    """A geração das respostas usa o Claude (Anthropic)."""
+    return bool(_conf('ANTHROPIC_API_KEY'))
+
+
+def ia_configurada():
+    """Pipeline completo do assistente: indexação (embeddings) + resposta (Claude)."""
+    return embeddings_configuradas() and geracao_configurada()
 
 
 # ---------------------------------------------------------------------------
@@ -97,11 +107,16 @@ def dividir_em_chunks(texto: str, tamanho: int = 1000, sobreposicao: int = 150):
 
 # ---------------------------------------------------------------------------
 # Embeddings (OpenAI)
+#
+# A Anthropic/Claude não oferece endpoint de embeddings, então a parte de
+# vetorização do RAG usa a OpenAI. A geração das respostas usa o Claude
+# (ver `responder_pergunta`). Para trocar o provedor de embeddings, basta
+# reescrever `gerar_embeddings`.
 # ---------------------------------------------------------------------------
 def _cliente_openai():
     chave = _conf('OPENAI_API_KEY')
     if not chave:
-        raise IAIndisponivel('OPENAI_API_KEY não configurada.')
+        raise IAIndisponivel('OPENAI_API_KEY não configurada (necessária para indexar/buscar documentos).')
     try:
         from openai import OpenAI
     except Exception as exc:
@@ -178,7 +193,7 @@ def buscar_trechos(pergunta: str, *, user_id, limite: int = 5):
 
 
 # ---------------------------------------------------------------------------
-# Pergunta & Resposta (RAG)
+# Geração da resposta com o Claude (Anthropic)
 # ---------------------------------------------------------------------------
 SYSTEM_PROMPT = (
     'Você é um assistente jurídico do escritório. Responda à pergunta do '
@@ -189,24 +204,37 @@ SYSTEM_PROMPT = (
 )
 
 
+def _cliente_anthropic():
+    chave = _conf('ANTHROPIC_API_KEY')
+    if not chave:
+        raise IAIndisponivel('ANTHROPIC_API_KEY não configurada (necessária para gerar respostas).')
+    try:
+        import anthropic
+    except Exception as exc:
+        raise IAIndisponivel('Pacote anthropic não instalado.') from exc
+    return anthropic.Anthropic(api_key=chave)
+
+
 def responder_pergunta(pergunta: str, *, user_id, limite: int = 5) -> dict:
-    """Pipeline RAG: recupera trechos relevantes e gera uma resposta."""
+    """Pipeline RAG: recupera trechos relevantes (embeddings) e gera a resposta com o Claude."""
     trechos = buscar_trechos(pergunta, user_id=user_id, limite=limite)
     if not trechos:
         return {'resposta': 'Não há documentos indexados para responder.', 'fontes': []}
 
     contexto = '\n\n---\n\n'.join(t['texto'] for t in trechos)
-    cliente = _cliente_openai()
-    modelo = _conf('IA_CHAT_MODEL', 'gpt-4o-mini')
-    resposta = cliente.chat.completions.create(
+    cliente = _cliente_anthropic()
+    modelo = _conf('IA_CLAUDE_MODEL', 'claude-opus-4-8')
+    resposta = cliente.messages.create(
         model=modelo,
+        max_tokens=4096,
+        thinking={'type': 'adaptive'},  # raciocínio adaptativo para análise jurídica
+        system=SYSTEM_PROMPT,
         messages=[
-            {'role': 'system', 'content': SYSTEM_PROMPT},
-            {'role': 'user', 'content': f'Contexto dos documentos:\n{contexto}\n\nPergunta: {pergunta}'},
+            {
+                'role': 'user',
+                'content': f'Contexto dos documentos:\n{contexto}\n\nPergunta: {pergunta}',
+            }
         ],
-        temperature=0.2,
     )
-    return {
-        'resposta': resposta.choices[0].message.content,
-        'fontes': trechos,
-    }
+    texto = next((bloco.text for bloco in resposta.content if bloco.type == 'text'), '')
+    return {'resposta': texto, 'fontes': trechos}

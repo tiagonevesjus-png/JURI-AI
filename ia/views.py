@@ -28,7 +28,8 @@ def assistente(request):
         if not pergunta:
             contexto['erro'] = 'Digite uma pergunta.'
         elif not services.ia_configurada():
-            contexto['erro'] = 'A IA não está configurada (defina OPENAI_API_KEY).'
+            contexto['erro'] = ('A IA não está totalmente configurada (defina ANTHROPIC_API_KEY '
+                                'para as respostas e OPENAI_API_KEY para a busca nos documentos).')
         else:
             try:
                 resultado = services.responder_pergunta(pergunta, user_id=request.user.id)

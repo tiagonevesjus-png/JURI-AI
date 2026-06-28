@@ -1,6 +1,7 @@
 accelerate==1.12.0
 agno==2.4.7
 annotated-types==0.7.0
+anthropic==0.112.0
 antlr4-python3-runtime==4.9.3
 anyio==4.12.1
 asgiref==3.11.0

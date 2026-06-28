@@ -145,9 +145,13 @@ LOGOUT_REDIRECT_URL = 'login'
 
 # ---------------------------------------------------------------------------
 # Configuração da camada de IA (OCR/RAG)
-# Defina OPENAI_API_KEY no ambiente para habilitar o assistente jurídico.
+#
+# - Geração das respostas: Claude (Anthropic) -> defina ANTHROPIC_API_KEY.
+# - Embeddings/busca vetorial: OpenAI -> defina OPENAI_API_KEY (a Anthropic
+#   não oferece endpoint de embeddings).
 # ---------------------------------------------------------------------------
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
+IA_CLAUDE_MODEL = os.environ.get('IA_CLAUDE_MODEL', 'claude-opus-4-8')
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 IA_EMBEDDING_MODEL = os.environ.get('IA_EMBEDDING_MODEL', 'text-embedding-3-small')
-IA_CHAT_MODEL = os.environ.get('IA_CHAT_MODEL', 'gpt-4o-mini')
 LANCEDB_PATH = os.environ.get('LANCEDB_PATH', os.path.join(BASE_DIR, 'lancedb'))
