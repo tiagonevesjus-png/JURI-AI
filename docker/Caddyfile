@@ -1,0 +1,21 @@
+# Proxy reverso com HTTPS automático (Let's Encrypt).
+# O domínio e o e-mail vêm do .env (DOMAIN, ACME_EMAIL). O Caddy obtém e
+# renova o certificado sozinho assim que o DNS apontar para este servidor.
+
+{$DOMAIN} {
+    encode gzip zstd
+    tls {$ACME_EMAIL}
+
+    # Arquivos enviados pelos usuários (documentos).
+    handle_path /media/* {
+        root * /srv
+        file_server
+    }
+
+    reverse_proxy web:8000
+}
+
+# Redireciona o www para o domínio principal.
+www.{$DOMAIN} {
+    redir https://{$DOMAIN}{uri} permanent
+}
