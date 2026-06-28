@@ -27,9 +27,23 @@ def _conf(nome, padrao=''):
     return getattr(settings, nome, os.environ.get(nome, padrao))
 
 
+def _backend_embeddings():
+    """Backend de embeddings ativo: 'local' (padrão), 'openai' ou 'voyage'."""
+    return (_conf('IA_EMBEDDING_BACKEND', 'local') or 'local').lower()
+
+
 def embeddings_configuradas():
-    """RAG usa embeddings da OpenAI (a Anthropic não oferece endpoint de embeddings)."""
-    return bool(_conf('OPENAI_API_KEY'))
+    """A Anthropic não oferece embeddings; o RAG usa um backend configurável.
+
+    - 'local' (padrão): roda em CPU/GPU via transformers, sem chave de API.
+    - 'openai' / 'voyage': exigem a respectiva chave.
+    """
+    backend = _backend_embeddings()
+    if backend == 'openai':
+        return bool(_conf('OPENAI_API_KEY'))
+    if backend == 'voyage':
+        return bool(_conf('VOYAGE_API_KEY'))
+    return True  # local não precisa de chave; disponibilidade do pacote é checada em runtime
 
 
 def geracao_configurada():
@@ -106,31 +120,85 @@ def dividir_em_chunks(texto: str, tamanho: int = 1000, sobreposicao: int = 150):
 
 
 # ---------------------------------------------------------------------------
-# Embeddings (OpenAI)
+# Embeddings (backend configurável)
 #
-# A Anthropic/Claude não oferece endpoint de embeddings, então a parte de
-# vetorização do RAG usa a OpenAI. A geração das respostas usa o Claude
-# (ver `responder_pergunta`). Para trocar o provedor de embeddings, basta
-# reescrever `gerar_embeddings`.
+# A Anthropic/Claude não oferece endpoint de embeddings. A vetorização do RAG
+# usa um backend configurável via IA_EMBEDDING_BACKEND:
+#   - 'local'  (padrão): modelo HuggingFace via transformers, sem chave.
+#   - 'openai': embeddings da OpenAI (requer OPENAI_API_KEY).
+#   - 'voyage': Voyage AI, parceira de embeddings recomendada pela Anthropic.
+#
+# Atenção: backends diferentes produzem vetores de dimensões diferentes. Ao
+# trocar de backend, reindexe os documentos (apague a pasta do LanceDB).
 # ---------------------------------------------------------------------------
-def _cliente_openai():
+def gerar_embeddings(textos: list[str]) -> list[list[float]]:
+    if not textos:
+        return []
+    backend = _backend_embeddings()
+    if backend == 'openai':
+        return _embeddings_openai(textos)
+    if backend == 'voyage':
+        return _embeddings_voyage(textos)
+    return _embeddings_local(textos)
+
+
+def _embeddings_openai(textos):
     chave = _conf('OPENAI_API_KEY')
     if not chave:
-        raise IAIndisponivel('OPENAI_API_KEY não configurada (necessária para indexar/buscar documentos).')
+        raise IAIndisponivel('OPENAI_API_KEY não configurada.')
     try:
         from openai import OpenAI
     except Exception as exc:
         raise IAIndisponivel('Pacote openai não instalado.') from exc
-    return OpenAI(api_key=chave)
-
-
-def gerar_embeddings(textos: list[str]) -> list[list[float]]:
-    if not textos:
-        return []
-    cliente = _cliente_openai()
     modelo = _conf('IA_EMBEDDING_MODEL', 'text-embedding-3-small')
-    resposta = cliente.embeddings.create(model=modelo, input=textos)
+    resposta = OpenAI(api_key=chave).embeddings.create(model=modelo, input=textos)
     return [item.embedding for item in resposta.data]
+
+
+def _embeddings_voyage(textos):
+    chave = _conf('VOYAGE_API_KEY')
+    if not chave:
+        raise IAIndisponivel('VOYAGE_API_KEY não configurada.')
+    try:
+        import voyageai
+    except Exception as exc:
+        raise IAIndisponivel('Pacote voyageai não instalado.') from exc
+    modelo = _conf('IA_VOYAGE_MODEL', 'voyage-3')
+    resultado = voyageai.Client(api_key=chave).embed(textos, model=modelo, input_type='document')
+    return resultado.embeddings
+
+
+# Modelo local carregado uma única vez (lazy) e reaproveitado.
+_modelo_local = None
+
+
+def _carregar_modelo_local():
+    global _modelo_local
+    if _modelo_local is None:
+        try:
+            import torch
+            from transformers import AutoModel, AutoTokenizer
+        except Exception as exc:
+            raise IAIndisponivel('Pacotes torch/transformers não instalados (embeddings locais).') from exc
+        nome = _conf('IA_EMBEDDING_MODEL_LOCAL', 'sentence-transformers/all-MiniLM-L6-v2')
+        tokenizer = AutoTokenizer.from_pretrained(nome)
+        modelo = AutoModel.from_pretrained(nome)
+        modelo.eval()
+        _modelo_local = (tokenizer, modelo, torch)
+    return _modelo_local
+
+
+def _embeddings_local(textos):
+    tokenizer, modelo, torch = _carregar_modelo_local()
+    with torch.no_grad():
+        enc = tokenizer(textos, padding=True, truncation=True, max_length=512, return_tensors='pt')
+        saida = modelo(**enc)
+        # Mean pooling ponderado pela máscara de atenção + normalização L2.
+        mascara = enc['attention_mask'].unsqueeze(-1).float()
+        somados = (saida.last_hidden_state * mascara).sum(dim=1)
+        contagem = mascara.sum(dim=1).clamp(min=1e-9)
+        vetores = torch.nn.functional.normalize(somados / contagem, p=2, dim=1)
+    return vetores.tolist()
 
 
 # ---------------------------------------------------------------------------

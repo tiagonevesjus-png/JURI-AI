@@ -8,11 +8,12 @@
 
     {% if not ia_configurada %}
         <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-            ⚠️ A IA ainda não está totalmente configurada. As respostas usam o <strong>Claude</strong>
-            (defina <code class="font-mono">ANTHROPIC_API_KEY</code>) e a busca nos documentos usa embeddings
-            (defina <code class="font-mono">OPENAI_API_KEY</code>). Instale também as dependências de IA
+            ⚠️ A IA ainda não está totalmente configurada. As respostas são geradas pelo <strong>Claude</strong> —
+            defina <code class="font-mono">ANTHROPIC_API_KEY</code>. A busca nos documentos usa embeddings
+            <strong>locais</strong> por padrão (sem chave); para usar OpenAI ou Voyage, configure
+            <code class="font-mono">IA_EMBEDDING_BACKEND</code>. Instale também as dependências de IA
             (<code class="font-mono">anthropic</code>, <code class="font-mono">docling</code>,
-            <code class="font-mono">openai</code>, <code class="font-mono">lancedb</code>).
+            <code class="font-mono">transformers</code>, <code class="font-mono">lancedb</code>).
         </div>
     {% endif %}
 

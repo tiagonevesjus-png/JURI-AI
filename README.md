@@ -59,15 +59,20 @@ O Juri-AI une segurança, automação e inteligência, transformando dados jurí
 Pipeline de IA que processa cada documento enviado e permite consultá-los em linguagem natural:
 
 - 🔍 **OCR / Conversão para Markdown** via `docling` (com fallback de leitura simples).
-- 🔗 **RAG (Retrieval-Augmented Generation)** — o conteúdo é dividido em trechos, vetorizado com *embeddings* da OpenAI e indexado no `LanceDB`.
+- 🔗 **RAG (Retrieval-Augmented Generation)** — o conteúdo é dividido em trechos, vetorizado por *embeddings* e indexado no `LanceDB`.
 - 💬 **Assistente Jurídico** (`/ia/assistente/`) — faça perguntas sobre os documentos; as respostas são geradas pelo **Claude (Anthropic)** com os trechos-fonte citados.
 - ⏱️ **Processamento assíncrono** com `django-q` (OCR → indexação encadeados no upload).
 
 > **Configuração da IA:**
-> - `ANTHROPIC_API_KEY` — geração das respostas com o Claude (opcional: `IA_CLAUDE_MODEL`, padrão `claude-opus-4-8`).
-> - `OPENAI_API_KEY` — embeddings para a busca nos documentos, pois a Anthropic não oferece endpoint de embeddings (opcional: `IA_EMBEDDING_MODEL`, `LANCEDB_PATH`).
+> - **Respostas (Claude):** defina `ANTHROPIC_API_KEY` (opcional: `IA_CLAUDE_MODEL`, padrão `claude-opus-4-8`). É a **única chave obrigatória**.
+> - **Embeddings (busca):** a Anthropic não oferece embeddings, então o backend é configurável via `IA_EMBEDDING_BACKEND`:
+>   - `local` *(padrão)* — roda via `transformers`, **sem chave de API** (`IA_EMBEDDING_MODEL_LOCAL`, padrão `all-MiniLM-L6-v2`).
+>   - `openai` — requer `OPENAI_API_KEY` (`IA_EMBEDDING_MODEL`).
+>   - `voyage` — requer `VOYAGE_API_KEY` (`IA_VOYAGE_MODEL`), parceira recomendada pela Anthropic.
 >
-> Sem essas chaves o sistema continua funcionando normalmente e o assistente exibe um aviso de configuração.
+> ⚠️ Ao trocar de backend de embeddings, reindexe os documentos (apague a pasta `lancedb/`), pois as dimensões dos vetores mudam.
+>
+> Sem as chaves/dependências o sistema continua funcionando e o assistente exibe um aviso de configuração.
 
 ---
 

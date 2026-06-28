@@ -146,12 +146,22 @@ LOGOUT_REDIRECT_URL = 'login'
 # ---------------------------------------------------------------------------
 # Configuração da camada de IA (OCR/RAG)
 #
-# - Geração das respostas: Claude (Anthropic) -> defina ANTHROPIC_API_KEY.
-# - Embeddings/busca vetorial: OpenAI -> defina OPENAI_API_KEY (a Anthropic
-#   não oferece endpoint de embeddings).
-# ---------------------------------------------------------------------------
+# Geração das respostas: Claude (Anthropic) -> defina ANTHROPIC_API_KEY.
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 IA_CLAUDE_MODEL = os.environ.get('IA_CLAUDE_MODEL', 'claude-opus-4-8')
+
+# Embeddings (busca vetorial). A Anthropic não oferece embeddings, então o
+# backend é configurável. Padrão 'local' (transformers, sem chave de API).
+#   IA_EMBEDDING_BACKEND = 'local' | 'openai' | 'voyage'
+IA_EMBEDDING_BACKEND = os.environ.get('IA_EMBEDDING_BACKEND', 'local')
+IA_EMBEDDING_MODEL_LOCAL = os.environ.get(
+    'IA_EMBEDDING_MODEL_LOCAL', 'sentence-transformers/all-MiniLM-L6-v2'
+)
+# Backend 'openai'
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 IA_EMBEDDING_MODEL = os.environ.get('IA_EMBEDDING_MODEL', 'text-embedding-3-small')
+# Backend 'voyage'
+VOYAGE_API_KEY = os.environ.get('VOYAGE_API_KEY', '')
+IA_VOYAGE_MODEL = os.environ.get('IA_VOYAGE_MODEL', 'voyage-3')
+
 LANCEDB_PATH = os.environ.get('LANCEDB_PATH', os.path.join(BASE_DIR, 'lancedb'))
