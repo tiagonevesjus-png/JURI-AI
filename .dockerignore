@@ -1,0 +1,16 @@
+.git
+.gitignore
+**/__pycache__/
+*.pyc
+venv/
+.venv/
+env/
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+lancedb/
+.env
+*.log
+.github/
+README.md

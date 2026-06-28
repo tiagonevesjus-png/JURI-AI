@@ -1,0 +1,12 @@
+# Dependências mínimas para rodar o sistema em produção (gestão + assistente
+# Claude + RAG com embeddings da OpenAI). NÃO inclui o stack pesado de IA local
+# (torch/docling) — para OCR de PDFs e embeddings locais, use requirements.txt.
+Django==6.0.1
+martor==1.7.16
+django-q2==1.9.0
+anthropic==0.112.0
+openai==2.16.0
+lancedb==0.27.1
+gunicorn==23.0.0
+whitenoise==6.8.2
+psycopg[binary]==3.2.3

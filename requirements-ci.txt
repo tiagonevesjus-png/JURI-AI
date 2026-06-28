@@ -1,0 +1,6 @@
+# Dependências mínimas para rodar a suíte de testes na CI.
+# A camada de IA usa imports tardios, então torch/docling/openai/lancedb não
+# são necessários para os testes (degradação graciosa é exercitada).
+Django==6.0.1
+martor==1.7.16
+django-q2==1.9.0

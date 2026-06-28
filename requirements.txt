@@ -176,3 +176,8 @@ xlsxwriter==3.2.9
 xxhash==3.6.0
 zipp==3.23.0
 zstandard==0.25.0
+
+# Deploy / produção
+gunicorn==23.0.0
+whitenoise==6.8.2
+psycopg[binary]==3.2.3

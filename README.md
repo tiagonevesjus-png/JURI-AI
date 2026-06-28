@@ -143,6 +143,56 @@ A suíte cobre perfis/controle de acesso, multi-tenancy, fluxos de processos/pra
 
 ---
 
+## 🚀 Deploy em produção (Docker)
+
+O sistema já vem pronto para subir em produção com **Docker Compose** (web + worker de fila + PostgreSQL).
+
+```bash
+# 1) Configure as variáveis de ambiente
+cp .env.example .env
+nano .env          # defina SECRET_KEY, ADMIN_PASSWORD, ANTHROPIC_API_KEY, etc.
+
+# 2) Suba os serviços (build + migração + criação do admin + estáticos)
+docker compose up -d --build
+
+# 3) Acesse
+#    http://localhost:8000  (login com ADMIN_USERNAME / ADMIN_PASSWORD do .env)
+```
+
+O que o start automático faz (via `docker/entrypoint.sh`):
+- aplica as migrações do banco;
+- cria/atualiza o usuário administrador (`manage.py setup_inicial`, a partir do `.env`);
+- coleta os arquivos estáticos;
+- sobe o **gunicorn** (web) e o **qcluster** (processamento assíncrono de OCR/indexação).
+
+### Imagens: base vs. completa
+- **`requirements-base.txt`** (usada no Docker): gestão completa + assistente **Claude** + RAG com embeddings da **OpenAI**. Imagem leve.
+- **`requirements.txt`** (completa): adiciona **OCR de PDFs** (`docling`) e **embeddings locais** (`transformers`/`torch`). Para usar, defina `IA_EMBEDDING_BACKEND=local` e troque a base por `requirements.txt` no `Dockerfile`.
+
+### Variáveis essenciais (`.env`)
+| Variável | Para quê |
+|---|---|
+| `SECRET_KEY`, `DEBUG=False`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS` | Segurança/produção do Django |
+| `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_EMAIL` | Usuário administrador inicial |
+| `POSTGRES_DB/USER/PASSWORD` | Banco PostgreSQL |
+| `ANTHROPIC_API_KEY` | Respostas do assistente (Claude) |
+| `IA_EMBEDDING_BACKEND` + `OPENAI_API_KEY` | Busca por embeddings (`openai` na imagem base) |
+
+> Sem `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` o sistema funciona normalmente; apenas o assistente de IA exibe um aviso de configuração.
+
+---
+
+## ✅ O que falta para usar
+
+O sistema está **funcional e pronto para deploy**. Para colocar em uso real:
+1. **Servidor**: uma VM/host com Docker (qualquer provedor) e um domínio apontando para ele.
+2. **`.env`**: preencher `SECRET_KEY`, `ADMIN_PASSWORD`, `ALLOWED_HOSTS`/`CSRF_TRUSTED_ORIGINS` com o domínio e senha do banco.
+3. **HTTPS**: colocar atrás de um proxy (Caddy/Nginx/Traefik) com certificado — o Django já está preparado (`SECURE_*`/HSTS quando `DEBUG=False`).
+4. **(Opcional) IA**: definir `ANTHROPIC_API_KEY` (e `OPENAI_API_KEY` se usar embeddings na nuvem) para ligar o assistente jurídico.
+5. `docker compose up -d --build` e acessar pelo domínio.
+
+---
+
 ## ⚙️ Configuração e Boas Práticas
 
 ### 🛡️ .gitignore e Banco de Dados
