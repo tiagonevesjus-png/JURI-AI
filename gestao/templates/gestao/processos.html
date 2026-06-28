@@ -1,0 +1,65 @@
+{% extends 'gestao/base_app.html' %}
+{% block conteudo %}
+<div class="space-y-6">
+    <div class="flex flex-wrap gap-4 justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-semibold tracking-tight">Processos</h1>
+            <p class="text-slate-500 mt-1">Gestão de processos judiciais</p>
+        </div>
+        <button onclick="abrirModal('modal-processo')" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:opacity-90">
+            + Novo processo
+        </button>
+    </div>
+
+    <!-- Filtros -->
+    <form method="GET" class="bg-white rounded-2xl shadow-sm p-4 flex flex-wrap gap-3">
+        <input name="q" value="{{ busca }}" placeholder="Buscar por título, número, cliente..."
+               class="flex-1 min-w-60 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-slate-900/20">
+        <select name="status" class="border border-slate-200 rounded-xl px-4 py-2.5 text-sm">
+            <option value="">Todos os status</option>
+            {% for v, label in status_choices %}<option value="{{ v }}" {% if status_atual == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <select name="area" class="border border-slate-200 rounded-xl px-4 py-2.5 text-sm">
+            <option value="">Todas as áreas</option>
+            {% for v, label in area_choices %}<option value="{{ v }}" {% if area_atual == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <button class="bg-slate-100 text-slate-700 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-slate-200">Filtrar</button>
+    </form>
+
+    <!-- Tabela -->
+    <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="text-slate-400 border-b border-slate-100">
+                <tr>
+                    <th class="text-left font-medium px-6 py-3">Processo</th>
+                    <th class="text-left font-medium px-6 py-3">Cliente</th>
+                    <th class="text-left font-medium px-6 py-3">Área</th>
+                    <th class="text-left font-medium px-6 py-3">Status</th>
+                    <th class="text-right font-medium px-6 py-3">Valor da causa</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in processos %}
+                    <tr class="border-b border-slate-50 hover:bg-slate-50">
+                        <td class="px-6 py-4">
+                            <a href="{% url 'processo_detalhe' p.id %}" class="font-medium hover:underline">{{ p.titulo }}</a>
+                            <p class="text-xs text-slate-400">{{ p.numero|default:"sem número" }}</p>
+                        </td>
+                        <td class="px-6 py-4">{{ p.cliente.nome }}</td>
+                        <td class="px-6 py-4">{{ p.get_area_display }}</td>
+                        <td class="px-6 py-4">
+                            <span class="text-xs px-2.5 py-1 rounded-full {% if p.status == 'ANDAMENTO' %}bg-emerald-100 text-emerald-700{% elif p.status == 'SUSPENSO' %}bg-amber-100 text-amber-700{% else %}bg-slate-200 text-slate-600{% endif %}">{{ p.get_status_display }}</span>
+                        </td>
+                        <td class="px-6 py-4 text-right">{% if p.valor_causa %}R$ {{ p.valor_causa|floatformat:2 }}{% else %}—{% endif %}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5" class="px-6 py-10 text-center text-slate-400">Nenhum processo encontrado.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% include 'gestao/_modal.html' with modal_id='modal-processo' titulo='Novo processo' action_url='/processos/novo/' form=form %}
+{% include 'gestao/_modal_script.html' %}
+{% endblock %}

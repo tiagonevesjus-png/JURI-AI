@@ -1,0 +1,58 @@
+{% extends 'gestao/base_app.html' %}
+{% block conteudo %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <div>
+        <h1 class="text-3xl font-semibold tracking-tight">🤖 Assistente Jurídico</h1>
+        <p class="text-slate-500 mt-1">Faça perguntas sobre os documentos cadastrados. As respostas usam IA (RAG) sobre os seus arquivos.</p>
+    </div>
+
+    {% if not ia_configurada %}
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+            ⚠️ A IA ainda não está totalmente configurada. As respostas são geradas pelo <strong>Claude</strong> —
+            defina <code class="font-mono">ANTHROPIC_API_KEY</code>. A busca nos documentos usa embeddings
+            <strong>locais</strong> por padrão (sem chave); para usar OpenAI ou Voyage, configure
+            <code class="font-mono">IA_EMBEDDING_BACKEND</code>. Instale também as dependências de IA
+            (<code class="font-mono">anthropic</code>, <code class="font-mono">docling</code>,
+            <code class="font-mono">transformers</code>, <code class="font-mono">lancedb</code>).
+        </div>
+    {% endif %}
+
+    <form method="POST" class="bg-white rounded-2xl shadow-sm p-5 space-y-3">
+        {% csrf_token %}
+        <textarea name="pergunta" rows="3" placeholder="Ex.: Qual o valor da multa prevista no contrato do cliente João?"
+                  class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-slate-900/20 outline-none">{{ pergunta }}</textarea>
+        <div class="flex justify-end">
+            <button class="bg-slate-900 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90">Perguntar</button>
+        </div>
+    </form>
+
+    {% if erro %}
+        <div class="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-800">{{ erro }}</div>
+    {% endif %}
+
+    {% if resposta %}
+        <div class="bg-white rounded-2xl shadow-sm p-6 space-y-4">
+            <div>
+                <p class="text-xs text-slate-400 uppercase mb-2">Resposta</p>
+                <div class="text-sm text-slate-800 whitespace-pre-line leading-relaxed">{{ resposta }}</div>
+            </div>
+            {% if fontes %}
+                <div class="border-t border-slate-100 pt-4">
+                    <p class="text-xs text-slate-400 uppercase mb-2">Trechos consultados ({{ fontes|length }})</p>
+                    <div class="space-y-2">
+                        {% for f in fontes %}
+                            <details class="bg-slate-50 rounded-xl p-3">
+                                <summary class="text-sm text-slate-600 cursor-pointer">Documento #{{ f.documento_id }}{% if f.tipo %} · {{ f.tipo }}{% endif %}</summary>
+                                <p class="text-xs text-slate-500 mt-2 whitespace-pre-line">{{ f.texto|truncatechars:600 }}</p>
+                            </details>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+            <p class="text-xs text-slate-400 border-t border-slate-100 pt-3">
+                ⚖️ Esta resposta é gerada por IA como apoio e não substitui a análise de um advogado.
+            </p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends 'gestao/base_app.html' %}
+{% block conteudo %}
+<div class="space-y-6">
+    <a href="{% url 'processos' %}" class="text-sm text-slate-500 hover:underline">← Voltar para processos</a>
+
+    <div class="bg-white rounded-2xl shadow-sm p-6">
+        <div class="flex flex-wrap justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-semibold">{{ processo.titulo }}</h1>
+                <p class="text-slate-500 text-sm mt-1">{{ processo.numero|default:"Sem número" }} · {{ processo.get_area_display }}</p>
+            </div>
+            <span class="self-start text-xs px-3 py-1.5 rounded-full {% if processo.status == 'ANDAMENTO' %}bg-emerald-100 text-emerald-700{% else %}bg-slate-200 text-slate-600{% endif %}">{{ processo.get_status_display }}</span>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 text-sm">
+            <div><p class="text-xs text-slate-400">Cliente</p><p class="font-medium">{{ processo.cliente.nome }}</p></div>
+            <div><p class="text-xs text-slate-400">Parte contrária</p><p class="font-medium">{{ processo.parte_contraria|default:"—" }}</p></div>
+            <div><p class="text-xs text-slate-400">Vara / Comarca</p><p class="font-medium">{{ processo.vara|default:"—" }} {% if processo.comarca %}· {{ processo.comarca }}{% endif %}</p></div>
+            <div><p class="text-xs text-slate-400">Instância</p><p class="font-medium">{{ processo.get_instancia_display }}</p></div>
+            <div><p class="text-xs text-slate-400">Tipo de ação</p><p class="font-medium">{{ processo.tipo_acao|default:"—" }}</p></div>
+            <div><p class="text-xs text-slate-400">Valor da causa</p><p class="font-medium">{% if processo.valor_causa %}R$ {{ processo.valor_causa|floatformat:2 }}{% else %}—{% endif %}</p></div>
+            <div><p class="text-xs text-slate-400">Distribuição</p><p class="font-medium">{{ processo.data_distribuicao|date:"d/m/Y"|default:"—" }}</p></div>
+            <div><p class="text-xs text-slate-400">Responsável</p><p class="font-medium">{{ processo.responsavel.username|default:"—" }}</p></div>
+        </div>
+        {% if processo.observacoes %}<div class="mt-4 text-sm text-slate-600 bg-slate-50 rounded-xl p-4">{{ processo.observacoes|linebreaksbr }}</div>{% endif %}
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Movimentações -->
+        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm">
+            <div class="px-6 py-4 border-b border-slate-100"><h3 class="font-semibold">Movimentações / Andamentos</h3></div>
+            <form method="POST" class="px-6 py-4 border-b border-slate-100 space-y-3">
+                {% csrf_token %}
+                {% include 'gestao/_form_fields.html' with form=mov_form %}
+                <button class="bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:opacity-90">Registrar andamento</button>
+            </form>
+            <div class="p-4 space-y-3">
+                {% for m in movimentacoes %}
+                    <div class="flex gap-3">
+                        <div class="text-xs text-slate-400 w-20 shrink-0 pt-0.5">{{ m.data|date:"d/m/Y" }}</div>
+                        <div class="text-sm text-slate-700 border-l-2 border-slate-200 pl-3">{{ m.descricao|linebreaksbr }}</div>
+                    </div>
+                {% empty %}
+                    <p class="text-sm text-slate-400">Nenhuma movimentação registrada.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Lateral: prazos, audiências, financeiro -->
+        <div class="space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm">
+                <div class="px-5 py-3 border-b border-slate-100"><h3 class="font-semibold text-sm">Prazos</h3></div>
+                <div class="p-4 space-y-2">
+                    {% for p in prazos %}
+                        <div class="flex justify-between text-sm"><span>{{ p.titulo }}</span><span class="text-slate-400">{{ p.data_fatal|date:"d/m" }}</span></div>
+                    {% empty %}<p class="text-sm text-slate-400">Nenhum prazo.</p>{% endfor %}
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm">
+                <div class="px-5 py-3 border-b border-slate-100"><h3 class="font-semibold text-sm">Audiências</h3></div>
+                <div class="p-4 space-y-2">
+                    {% for a in audiencias %}
+                        <div class="flex justify-between text-sm"><span>{{ a.get_tipo_display }}</span><span class="text-slate-400">{{ a.data_hora|date:"d/m H:i" }}</span></div>
+                    {% empty %}<p class="text-sm text-slate-400">Nenhuma audiência.</p>{% endfor %}
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm">
+                <div class="px-5 py-3 border-b border-slate-100"><h3 class="font-semibold text-sm">Financeiro</h3></div>
+                <div class="p-4 space-y-2">
+                    {% for l in lancamentos %}
+                        <div class="flex justify-between text-sm"><span>{{ l.descricao }}</span><span class="{% if l.tipo == 'RECEITA' %}text-emerald-600{% else %}text-red-600{% endif %}">R$ {{ l.valor|floatformat:2 }}</span></div>
+                    {% empty %}<p class="text-sm text-slate-400">Nenhum lançamento.</p>{% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

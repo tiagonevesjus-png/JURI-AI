@@ -1,0 +1,56 @@
+# Orquestração de produção: web (gunicorn), worker (fila assíncrona) e Postgres.
+# Uso:
+#   1) cp .env.example .env  e preencha as variáveis
+#   2) docker compose up -d --build
+#   3) acesse http://localhost:8000  (login com ADMIN_USERNAME/ADMIN_PASSWORD)
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-juriai}
+      POSTGRES_USER: ${POSTGRES_USER:-juriai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-juriai}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-juriai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - media_data:/app/media
+      - static_data:/app/staticfiles
+    ports:
+      - "8000:8000"
+
+  worker:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - media_data:/app/media
+    # Não precisa migrar/coletar estáticos de novo: só processa a fila.
+    entrypoint: []
+    command: ["python", "manage.py", "qcluster"]
+
+volumes:
+  postgres_data:
+  media_data:
+  static_data:

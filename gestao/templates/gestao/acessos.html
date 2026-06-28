@@ -1,0 +1,44 @@
+{% extends 'gestao/base_app.html' %}
+{% block conteudo %}
+<div class="space-y-6">
+    <div>
+        <h1 class="text-3xl font-semibold tracking-tight">Controle de acessos</h1>
+        <p class="text-slate-500 mt-1">Usuários e permissões do escritório</p>
+    </div>
+
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+        Para criar novos usuários, definir senhas e gerenciar permissões detalhadas, utilize o
+        <a href="/admin/auth/user/" class="font-medium underline">painel administrativo do Django</a>.
+        O cargo de cada usuário é editado em <a href="/admin/gestao/perfil/" class="font-medium underline">Perfis / Acessos</a>.
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="text-slate-400 border-b border-slate-100">
+                <tr>
+                    <th class="text-left font-medium px-6 py-3">Usuário</th>
+                    <th class="text-left font-medium px-6 py-3">Nome</th>
+                    <th class="text-left font-medium px-6 py-3">Cargo</th>
+                    <th class="text-left font-medium px-6 py-3">OAB</th>
+                    <th class="text-left font-medium px-6 py-3">Acesso</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in perfis %}
+                    <tr class="border-b border-slate-50">
+                        <td class="px-6 py-4 font-medium">{{ p.user.username }}</td>
+                        <td class="px-6 py-4 text-slate-500">{{ p.nome_completo|default:"—" }}</td>
+                        <td class="px-6 py-4"><span class="text-xs px-2.5 py-1 rounded-full bg-slate-200 text-slate-700">{{ p.get_cargo_display }}</span></td>
+                        <td class="px-6 py-4 text-slate-500">{{ p.oab|default:"—" }}</td>
+                        <td class="px-6 py-4">
+                            <span class="text-xs px-2.5 py-1 rounded-full {% if p.ativo %}bg-emerald-100 text-emerald-700{% else %}bg-red-100 text-red-700{% endif %}">{% if p.ativo %}Ativo{% else %}Inativo{% endif %}</span>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5" class="px-6 py-10 text-center text-slate-400">Nenhum perfil cadastrado.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

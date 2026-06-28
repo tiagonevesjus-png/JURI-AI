@@ -1,0 +1,21 @@
+{% extends 'gestao/base_app.html' %}
+{% block conteudo %}
+<div class="space-y-6">
+    <div class="flex flex-wrap gap-4 justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-semibold tracking-tight">Tarefas</h1>
+            <p class="text-slate-500 mt-1">Rotina e organização do escritório</p>
+        </div>
+        <button onclick="abrirModal('modal-tarefa')" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:opacity-90">+ Nova tarefa</button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {% include 'gestao/_coluna_tarefa.html' with titulo='A fazer' tarefas=afazer destino='FAZENDO' acao='Iniciar' cor='bg-slate-400' %}
+        {% include 'gestao/_coluna_tarefa.html' with titulo='Em andamento' tarefas=fazendo destino='CONCLUIDA' acao='Concluir' cor='bg-amber-400' %}
+        {% include 'gestao/_coluna_tarefa.html' with titulo='Concluídas' tarefas=concluidas destino='' acao='' cor='bg-emerald-400' %}
+    </div>
+</div>
+
+{% include 'gestao/_modal.html' with modal_id='modal-tarefa' titulo='Nova tarefa' action_url='/tarefas/' form=form %}
+{% include 'gestao/_modal_script.html' %}
+{% endblock %}

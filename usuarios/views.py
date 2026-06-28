@@ -48,7 +48,7 @@ def login(request):
         user = authenticate(username=username, password=senha)
         if user is not None:
             auth.login(request, user)
-            return redirect('clientes')
+            return redirect('dashboard')
         else:
             messages.add_message(request, constants.ERROR, 'Usuário ou senha inválidos.')
             return redirect('login')
@@ -58,27 +58,45 @@ def login(request):
 def clientes(request):
     if request.method == 'GET':
         clientes = Cliente.objects.filter(user=request.user)
-        return render(request, 'clientes.html', {'clientes': clientes})
+        busca = request.GET.get('q', '').strip()
+        if busca:
+            clientes = clientes.filter(nome__icontains=busca)
+        contexto = {
+            'clientes': clientes,
+            'busca': busca,
+            'total': clientes.count(),
+            'ativos': clientes.filter(status=True).count(),
+            'inativos': clientes.filter(status=False).count(),
+            'pj': clientes.filter(tipo='PJ').count(),
+        }
+        return render(request, 'clientes.html', contexto)
     elif request.method == 'POST':
         nome = request.POST.get('nome')
         email = request.POST.get('email')
         tipo = request.POST.get('tipo')
         status = request.POST.get('status') == 'on'
-        
+
         Cliente.objects.create(
             nome=nome,
             email=email,
             tipo=tipo,
             status=status,
+            cpf_cnpj=request.POST.get('cpf_cnpj', ''),
+            telefone=request.POST.get('telefone', ''),
+            endereco=request.POST.get('endereco', ''),
+            cidade=request.POST.get('cidade', ''),
+            estado=request.POST.get('estado', ''),
+            observacoes=request.POST.get('observacoes', ''),
             user=request.user
         )
-        
+
         messages.add_message(request, constants.SUCCESS, 'Cliente cadastrado com sucesso!')
         return redirect('clientes')
 
 from .models import Cliente, Documentos
+@login_required
 def cliente(request, id):
-    cliente = Cliente.objects.get(id=id)
+    cliente = Cliente.objects.get(id=id, user=request.user)
     if request.method == 'GET':
         documentos = Documentos.objects.filter(cliente=cliente)
         return render(request, 'cliente.html', {'cliente': cliente, 'documentos': documentos})

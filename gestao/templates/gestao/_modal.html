@@ -1,0 +1,20 @@
+{# Modal genérico de formulário. Espera: modal_id, titulo, action_url, form #}
+<div id="{{ modal_id }}" class="fixed inset-0 z-[9999] items-center justify-center p-4" style="display:none">
+    <div onclick="fecharModal('{{ modal_id }}')" class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto z-10">
+        <div class="flex items-center justify-between px-6 pt-6 pb-2">
+            <h3 class="text-xl font-semibold">{{ titulo }}</h3>
+            <button onclick="fecharModal('{{ modal_id }}')" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+        </div>
+        <form action="{{ action_url }}" method="POST" class="px-6 pb-6 space-y-4">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% include 'gestao/_form_fields.html' with form=form %}
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="fecharModal('{{ modal_id }}')" class="flex-1 border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-slate-50">Cancelar</button>
+                <button type="submit" class="flex-1 bg-slate-900 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:opacity-90">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>

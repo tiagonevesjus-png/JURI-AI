@@ -1,0 +1,59 @@
+{% extends 'gestao/base_app.html' %}
+{% block conteudo %}
+<div class="space-y-6">
+    <div class="flex flex-wrap gap-4 justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-semibold tracking-tight">Prazos</h1>
+            <p class="text-slate-500 mt-1">Controle de prazos processuais</p>
+        </div>
+        <button onclick="abrirModal('modal-prazo')" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:opacity-90">+ Novo prazo</button>
+    </div>
+
+    <form method="GET" class="flex gap-2">
+        <a href="{% url 'prazos' %}" class="px-4 py-2 rounded-xl text-sm {% if not status_atual %}bg-slate-900 text-white{% else %}bg-white text-slate-600 border border-slate-200{% endif %}">Todos</a>
+        {% for v, label in status_choices %}
+            <a href="?status={{ v }}" class="px-4 py-2 rounded-xl text-sm {% if status_atual == v %}bg-slate-900 text-white{% else %}bg-white text-slate-600 border border-slate-200{% endif %}">{{ label }}</a>
+        {% endfor %}
+    </form>
+
+    <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="text-slate-400 border-b border-slate-100">
+                <tr>
+                    <th class="text-left font-medium px-6 py-3">Prazo</th>
+                    <th class="text-left font-medium px-6 py-3">Processo</th>
+                    <th class="text-left font-medium px-6 py-3">Data fatal</th>
+                    <th class="text-left font-medium px-6 py-3">Prioridade</th>
+                    <th class="text-left font-medium px-6 py-3">Status</th>
+                    <th class="px-6 py-3"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in prazos %}
+                    <tr class="border-b border-slate-50">
+                        <td class="px-6 py-4 font-medium">{{ p.titulo }}</td>
+                        <td class="px-6 py-4 text-slate-500">{{ p.processo.titulo|default:"—" }}</td>
+                        <td class="px-6 py-4 {% if p.atrasado %}text-red-600 font-medium{% endif %}">{{ p.data_fatal|date:"d/m/Y" }}</td>
+                        <td class="px-6 py-4">
+                            <span class="text-xs px-2.5 py-1 rounded-full {% if p.prioridade == 'ALTA' %}bg-red-100 text-red-700{% elif p.prioridade == 'MEDIA' %}bg-amber-100 text-amber-700{% else %}bg-slate-200 text-slate-600{% endif %}">{{ p.get_prioridade_display }}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="text-xs px-2.5 py-1 rounded-full {% if p.status == 'CUMPRIDO' %}bg-emerald-100 text-emerald-700{% elif p.status == 'PERDIDO' %}bg-red-100 text-red-700{% else %}bg-slate-200 text-slate-600{% endif %}">{{ p.get_status_display }}</span>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            {% if p.status == 'PENDENTE' %}
+                                <a href="{% url 'prazo_concluir' p.id %}" class="text-xs text-emerald-600 hover:underline">marcar cumprido</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="6" class="px-6 py-10 text-center text-slate-400">Nenhum prazo cadastrado.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% include 'gestao/_modal.html' with modal_id='modal-prazo' titulo='Novo prazo' action_url='/prazos/' form=form %}
+{% include 'gestao/_modal_script.html' %}
+{% endblock %}

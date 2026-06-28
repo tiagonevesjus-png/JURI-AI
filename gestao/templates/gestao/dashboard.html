@@ -1,0 +1,138 @@
+{% extends 'gestao/base_app.html' %}
+{% block conteudo %}
+<div class="space-y-8">
+    <div>
+        <h1 class="text-3xl font-semibold tracking-tight">Dashboard</h1>
+        <p class="text-slate-500 mt-1">Visão geral do escritório, {{ user.username }}.</p>
+    </div>
+
+    <!-- Indicadores -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white rounded-2xl p-5 shadow-sm">
+            <p class="text-xs text-slate-400 uppercase">Clientes</p>
+            <h2 class="text-3xl font-semibold mt-2">{{ total_clientes }}</h2>
+        </div>
+        <div class="bg-white rounded-2xl p-5 shadow-sm">
+            <p class="text-xs text-slate-400 uppercase">Processos ativos</p>
+            <h2 class="text-3xl font-semibold mt-2">{{ processos_ativos }}</h2>
+            <p class="text-xs text-slate-400 mt-1">de {{ processos_total }} no total</p>
+        </div>
+        <div class="bg-white rounded-2xl p-5 shadow-sm">
+            <p class="text-xs text-slate-400 uppercase">Prazos pendentes</p>
+            <h2 class="text-3xl font-semibold mt-2">{{ prazos_pendentes }}</h2>
+            <p class="text-xs {% if prazos_atrasados %}text-red-500{% else %}text-slate-400{% endif %} mt-1">{{ prazos_atrasados }} atrasado(s)</p>
+        </div>
+        <div class="bg-white rounded-2xl p-5 shadow-sm">
+            <p class="text-xs text-slate-400 uppercase">Audiências próximas</p>
+            <h2 class="text-3xl font-semibold mt-2">{{ audiencias_proximas }}</h2>
+        </div>
+    </div>
+
+    <!-- Resumo financeiro -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-emerald-50 rounded-2xl p-5">
+            <p class="text-xs text-emerald-600 uppercase">Receitas</p>
+            <h2 class="text-2xl font-semibold mt-1 text-emerald-700">R$ {{ receitas|floatformat:2 }}</h2>
+        </div>
+        <div class="bg-red-50 rounded-2xl p-5">
+            <p class="text-xs text-red-600 uppercase">Despesas</p>
+            <h2 class="text-2xl font-semibold mt-1 text-red-700">R$ {{ despesas|floatformat:2 }}</h2>
+        </div>
+        <div class="bg-slate-900 rounded-2xl p-5">
+            <p class="text-xs text-slate-300 uppercase">Saldo</p>
+            <h2 class="text-2xl font-semibold mt-1 text-white">R$ {{ saldo|floatformat:2 }}</h2>
+        </div>
+        <div class="bg-amber-50 rounded-2xl p-5">
+            <p class="text-xs text-amber-600 uppercase">A receber</p>
+            <h2 class="text-2xl font-semibold mt-1 text-amber-700">R$ {{ a_receber|floatformat:2 }}</h2>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Próximos prazos -->
+        <div class="bg-white rounded-2xl shadow-sm">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="font-semibold">Próximos prazos</h3>
+                <a href="{% url 'prazos' %}" class="text-xs text-slate-500 hover:underline">ver todos</a>
+            </div>
+            <div class="p-4 space-y-2">
+                {% for p in proximos_prazos %}
+                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50">
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium truncate">{{ p.titulo }}</p>
+                            <p class="text-xs text-slate-400">{{ p.data_fatal|date:"d/m/Y" }}</p>
+                        </div>
+                        <span class="text-xs px-2.5 py-1 rounded-full {% if p.atrasado %}bg-red-100 text-red-700{% elif p.dias_restantes <= 7 %}bg-amber-100 text-amber-700{% else %}bg-slate-200 text-slate-600{% endif %}">
+                            {% if p.atrasado %}atrasado{% else %}{{ p.dias_restantes }}d{% endif %}
+                        </span>
+                    </div>
+                {% empty %}
+                    <p class="text-sm text-slate-400 p-3">Nenhum prazo pendente.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Próximas audiências -->
+        <div class="bg-white rounded-2xl shadow-sm">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="font-semibold">Próximas audiências</h3>
+                <a href="{% url 'audiencias' %}" class="text-xs text-slate-500 hover:underline">ver todas</a>
+            </div>
+            <div class="p-4 space-y-2">
+                {% for a in proximas_audiencias %}
+                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50">
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium truncate">{{ a.get_tipo_display }}</p>
+                            <p class="text-xs text-slate-400">{% if a.processo %}{{ a.processo.titulo }}{% endif %}</p>
+                        </div>
+                        <span class="text-xs text-slate-600">{{ a.data_hora|date:"d/m H:i" }}</span>
+                    </div>
+                {% empty %}
+                    <p class="text-sm text-slate-400 p-3">Nenhuma audiência agendada.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Tarefas -->
+        <div class="bg-white rounded-2xl shadow-sm">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="font-semibold">Tarefas abertas ({{ tarefas_abertas }})</h3>
+                <a href="{% url 'tarefas' %}" class="text-xs text-slate-500 hover:underline">ver todas</a>
+            </div>
+            <div class="p-4 space-y-2">
+                {% for t in tarefas_recentes %}
+                    <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50">
+                        <span class="w-2 h-2 rounded-full {% if t.prioridade == 'ALTA' %}bg-red-500{% elif t.prioridade == 'MEDIA' %}bg-amber-500{% else %}bg-slate-400{% endif %}"></span>
+                        <p class="text-sm flex-1 truncate">{{ t.titulo }}</p>
+                        <span class="text-xs text-slate-400">{{ t.get_status_display }}</span>
+                    </div>
+                {% empty %}
+                    <p class="text-sm text-slate-400 p-3">Nenhuma tarefa aberta.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Processos por área -->
+        <div class="bg-white rounded-2xl shadow-sm">
+            <div class="px-6 py-4 border-b border-slate-100">
+                <h3 class="font-semibold">Processos por área</h3>
+            </div>
+            <div class="p-4 space-y-3">
+                {% for item in processos_por_area %}
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-600">{{ item.area }}</span>
+                            <span class="font-medium">{{ item.total }}</span>
+                        </div>
+                        <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-slate-900 rounded-full" style="width: {% widthratio item.total processos_total 100 %}%"></div>
+                        </div>
+                    </div>
+                {% empty %}
+                    <p class="text-sm text-slate-400">Nenhum processo cadastrado.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

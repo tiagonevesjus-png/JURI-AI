@@ -1,0 +1,56 @@
+{% extends 'gestao/base_app.html' %}
+{% block conteudo %}
+<div class="space-y-6">
+    <div class="flex flex-wrap gap-4 justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-semibold tracking-tight">Financeiro</h1>
+            <p class="text-slate-500 mt-1">Receitas, despesas e honorários</p>
+        </div>
+        <button onclick="abrirModal('modal-lancamento')" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:opacity-90">+ Novo lançamento</button>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div class="bg-emerald-50 rounded-2xl p-5"><p class="text-xs text-emerald-600 uppercase">Receitas</p><h2 class="text-xl font-semibold mt-1 text-emerald-700">R$ {{ receitas|floatformat:2 }}</h2></div>
+        <div class="bg-red-50 rounded-2xl p-5"><p class="text-xs text-red-600 uppercase">Despesas</p><h2 class="text-xl font-semibold mt-1 text-red-700">R$ {{ despesas|floatformat:2 }}</h2></div>
+        <div class="bg-slate-900 rounded-2xl p-5"><p class="text-xs text-slate-300 uppercase">Saldo</p><h2 class="text-xl font-semibold mt-1 text-white">R$ {{ saldo|floatformat:2 }}</h2></div>
+        <div class="bg-amber-50 rounded-2xl p-5"><p class="text-xs text-amber-600 uppercase">A receber</p><h2 class="text-xl font-semibold mt-1 text-amber-700">R$ {{ a_receber|floatformat:2 }}</h2></div>
+        <div class="bg-slate-100 rounded-2xl p-5"><p class="text-xs text-slate-500 uppercase">A pagar</p><h2 class="text-xl font-semibold mt-1 text-slate-700">R$ {{ a_pagar|floatformat:2 }}</h2></div>
+    </div>
+
+    <div class="flex gap-2">
+        <a href="{% url 'financeiro' %}" class="px-4 py-2 rounded-xl text-sm {% if not tipo_atual %}bg-slate-900 text-white{% else %}bg-white text-slate-600 border border-slate-200{% endif %}">Todos</a>
+        <a href="?tipo=RECEITA" class="px-4 py-2 rounded-xl text-sm {% if tipo_atual == 'RECEITA' %}bg-slate-900 text-white{% else %}bg-white text-slate-600 border border-slate-200{% endif %}">Receitas</a>
+        <a href="?tipo=DESPESA" class="px-4 py-2 rounded-xl text-sm {% if tipo_atual == 'DESPESA' %}bg-slate-900 text-white{% else %}bg-white text-slate-600 border border-slate-200{% endif %}">Despesas</a>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="text-slate-400 border-b border-slate-100">
+                <tr>
+                    <th class="text-left font-medium px-6 py-3">Descrição</th>
+                    <th class="text-left font-medium px-6 py-3">Categoria</th>
+                    <th class="text-left font-medium px-6 py-3">Vencimento</th>
+                    <th class="text-left font-medium px-6 py-3">Status</th>
+                    <th class="text-right font-medium px-6 py-3">Valor</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for l in lancamentos %}
+                    <tr class="border-b border-slate-50">
+                        <td class="px-6 py-4 font-medium">{{ l.descricao }}<p class="text-xs text-slate-400">{{ l.cliente.nome|default:"" }}</p></td>
+                        <td class="px-6 py-4 text-slate-500">{{ l.get_categoria_display }}</td>
+                        <td class="px-6 py-4 text-slate-500">{{ l.data_vencimento|date:"d/m/Y" }}</td>
+                        <td class="px-6 py-4"><span class="text-xs px-2.5 py-1 rounded-full {% if l.status == 'PAGO' %}bg-emerald-100 text-emerald-700{% elif l.status == 'ATRASADO' %}bg-red-100 text-red-700{% else %}bg-slate-200 text-slate-600{% endif %}">{{ l.get_status_display }}</span></td>
+                        <td class="px-6 py-4 text-right font-medium {% if l.tipo == 'RECEITA' %}text-emerald-600{% else %}text-red-600{% endif %}">{% if l.tipo == 'DESPESA' %}-{% endif %}R$ {{ l.valor|floatformat:2 }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5" class="px-6 py-10 text-center text-slate-400">Nenhum lançamento cadastrado.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% include 'gestao/_modal.html' with modal_id='modal-lancamento' titulo='Novo lançamento' action_url='/financeiro/' form=form %}
+{% include 'gestao/_modal_script.html' %}
+{% endblock %}

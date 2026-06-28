@@ -1,0 +1,27 @@
+{# Coluna do quadro de tarefas. Espera: titulo, tarefas, destino, acao, cor #}
+<div class="bg-white rounded-2xl shadow-sm">
+    <div class="px-5 py-3 border-b border-slate-100 flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full {{ cor }}"></span>
+        <h3 class="font-semibold text-sm">{{ titulo }}</h3>
+        <span class="ml-auto text-xs text-slate-400">{{ tarefas|length }}</span>
+    </div>
+    <div class="p-3 space-y-2 min-h-24">
+        {% for t in tarefas %}
+            <div class="rounded-xl border border-slate-100 p-3">
+                <div class="flex items-start gap-2">
+                    <span class="mt-1.5 w-2 h-2 rounded-full shrink-0 {% if t.prioridade == 'ALTA' %}bg-red-500{% elif t.prioridade == 'MEDIA' %}bg-amber-500{% else %}bg-slate-400{% endif %}"></span>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium">{{ t.titulo }}</p>
+                        {% if t.processo %}<p class="text-xs text-slate-400">{{ t.processo.titulo }}</p>{% endif %}
+                        {% if t.prazo %}<p class="text-xs text-slate-400">⏰ {{ t.prazo|date:"d/m/Y" }}</p>{% endif %}
+                    </div>
+                </div>
+                {% if destino %}
+                    <a href="{% url 'tarefa_status' t.id destino %}" class="inline-block mt-2 text-xs text-slate-500 hover:text-slate-900">→ {{ acao }}</a>
+                {% endif %}
+            </div>
+        {% empty %}
+            <p class="text-sm text-slate-300 text-center py-6">Vazio</p>
+        {% endfor %}
+    </div>
+</div>
