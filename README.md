@@ -135,6 +135,12 @@ python manage.py runserver
 
 Acesse o projeto em: `http://127.0.0.1:8000/`
 
+### 6️⃣ Rodar os testes
+```bash
+python manage.py test
+```
+A suíte cobre perfis/controle de acesso, multi-tenancy, fluxos de processos/prazos/tarefas/financeiro e a camada de IA (chunking, seleção de backend e degradação graciosa).
+
 ---
 
 ## ⚙️ Configuração e Boas Práticas
