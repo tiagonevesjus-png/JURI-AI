@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block 'body' %}
+<div class="min-h-screen flex bg-slate-100/60">
+    <!-- Sidebar -->
+    <aside class="hidden md:flex md:flex-col w-64 bg-white border-r border-slate-200 fixed inset-y-0">
+        <div class="px-6 py-5 border-b border-slate-100">
+            <a href="{% url 'dashboard' %}" class="flex items-center gap-2">
+                <span class="text-2xl">⚖️</span>
+                <span class="text-lg font-semibold tracking-tight">Juri-AI</span>
+            </a>
+        </div>
+        <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1 text-sm">
+            {% url 'dashboard' as u_dash %}
+            {% url 'clientes' as u_cli %}
+            {% url 'processos' as u_proc %}
+            {% url 'agenda' as u_age %}
+            {% url 'prazos' as u_pra %}
+            {% url 'audiencias' as u_aud %}
+            {% url 'tarefas' as u_tar %}
+            {% url 'financeiro' as u_fin %}
+            {% url 'relatorios' as u_rel %}
+            {% with path=request.path %}
+            <a href="{{ u_dash }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_dash %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">📊 <span>Dashboard</span></a>
+            <a href="{{ u_cli }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_cli %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">👥 <span>Clientes</span></a>
+            <a href="{{ u_proc }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if u_proc in path %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">📁 <span>Processos</span></a>
+            <a href="{{ u_age }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_age %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">📅 <span>Agenda</span></a>
+            <a href="{{ u_aud }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_aud %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">⚖️ <span>Audiências</span></a>
+            <a href="{{ u_pra }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_pra %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">⏰ <span>Prazos</span></a>
+            <a href="{{ u_tar }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_tar %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">✅ <span>Tarefas</span></a>
+            <a href="{{ u_fin }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_fin %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">💰 <span>Financeiro</span></a>
+            <a href="{{ u_rel }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_rel %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">📈 <span>Relatórios</span></a>
+            {% if is_admin %}
+            <a href="{% url 'acessos' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == '/acessos/' %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">🔐 <span>Controle de acessos</span></a>
+            {% endif %}
+            <a href="/admin/" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100">⚙️ <span>Admin Django</span></a>
+            {% endwith %}
+        </nav>
+        <div class="px-4 py-4 border-t border-slate-100">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-semibold">
+                    {{ user.username|slice:":1"|upper }}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium truncate">{{ user.username }}</p>
+                    <p class="text-xs text-slate-400 truncate">{% if perfil_atual %}{{ perfil_atual.get_cargo_display }}{% else %}Usuário{% endif %}</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Conteúdo -->
+    <div class="flex-1 md:ml-64 min-w-0">
+        <!-- Top bar mobile -->
+        <header class="md:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+            <a href="{% url 'dashboard' %}" class="flex items-center gap-2 font-semibold">⚖️ Juri-AI</a>
+            <a href="{% url 'processos' %}" class="text-sm text-slate-500">Menu</a>
+        </header>
+
+        <main class="p-5 md:p-8 max-w-7xl mx-auto">
+            {% if messages %}
+                <div class="space-y-2 mb-6">
+                {% for message in messages %}
+                    <div class="rounded-xl p-4 text-sm {% if message.tags == 'success' %}bg-emerald-50 text-emerald-800 border border-emerald-200{% elif message.tags == 'error' %}bg-red-50 text-red-800 border border-red-200{% else %}bg-slate-50 text-slate-800 border border-slate-200{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+                </div>
+            {% endif %}
+
+            {% block conteudo %}{% endblock %}
+        </main>
+    </div>
+</div>
+{% endblock 'body' %}

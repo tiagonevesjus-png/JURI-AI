@@ -11,6 +11,13 @@ class Cliente(models.Model):
     email = models.EmailField(max_length=255)
     tipo = models.CharField(max_length=2, choices=TIPO_CHOICES, default='PF')
     status = models.BooleanField(default=True)
+    cpf_cnpj = models.CharField('CPF / CNPJ', max_length=20, blank=True)
+    telefone = models.CharField(max_length=20, blank=True)
+    endereco = models.CharField('Endereço', max_length=255, blank=True)
+    cidade = models.CharField(max_length=120, blank=True)
+    estado = models.CharField('UF', max_length=2, blank=True)
+    observacoes = models.TextField('Observações', blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True, null=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     def __str__(self):

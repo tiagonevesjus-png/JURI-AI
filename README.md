@@ -41,6 +41,17 @@ O Juri-AI une segurança, automação e inteligência, transformando dados jurí
 - Organização por tipo de documento.
 - Histórico de uploads com data e responsável.
 
+### 🗂️ Painel de Gestão Jurídica (app `gestao`)
+- **Dashboard / Indicadores:** visão geral com processos ativos, prazos a vencer, audiências próximas, tarefas abertas e resumo financeiro.
+- **Processos judiciais:** cadastro completo (número CNJ, área, vara, comarca, instância, valor da causa), filtros, busca e registro de movimentações/andamentos.
+- **Agenda:** linha do tempo unificada de compromissos e audiências.
+- **Audiências:** agendamento e acompanhamento por status (agendada, realizada, cancelada, adiada).
+- **Prazos:** controle de prazos processuais com prioridade, alerta de vencimento/atraso e marcação de cumprimento.
+- **Tarefas:** quadro de rotina (a fazer / em andamento / concluídas).
+- **Financeiro:** receitas, despesas, honorários, saldo, a receber e a pagar.
+- **Relatórios:** processos por área e status, prazos cumpridos/perdidos e receitas por categoria.
+- **Controle de acessos:** perfis de usuário por cargo (Administrador, Advogado, Estagiário, Secretária, Financeiro).
+
 ---
 
 ## 🧠 Funcionalidades em Desenvolvimento
@@ -136,9 +147,11 @@ db.sqlite3
 ```text
 Juri-AI/
 ├── core/                # Configurações principais do projeto (settings, urls)
+├── gestao/              # Painel de gestão: processos, agenda, prazos, audiências,
+│                        #   tarefas, financeiro, relatórios e controle de acessos
 ├── ia/                  # Contém tasks e lógica de IA
-├── templates/           # Contém static/ e templates globais
-├── usuarios/            # Contém models, views, templates e urls
+├── templates/           # Contém static/ e templates globais (base + sidebar)
+├── usuarios/            # Autenticação, clientes e documentos
 ├── manage.py            # Utilitário de linha de comando
 ├── requirements.txt     # Dependências do projeto
 └── README.md            # Documentação

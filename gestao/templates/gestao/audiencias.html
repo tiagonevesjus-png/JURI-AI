@@ -1,0 +1,51 @@
+{% extends 'gestao/base_app.html' %}
+{% block conteudo %}
+<div class="space-y-6">
+    <div class="flex flex-wrap gap-4 justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-semibold tracking-tight">Audiências</h1>
+            <p class="text-slate-500 mt-1">Agendamento e acompanhamento de audiências</p>
+        </div>
+        <button onclick="abrirModal('modal-audiencia')" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:opacity-90">+ Nova audiência</button>
+    </div>
+
+    <div class="flex gap-2">
+        <a href="{% url 'audiencias' %}" class="px-4 py-2 rounded-xl text-sm {% if not status_atual %}bg-slate-900 text-white{% else %}bg-white text-slate-600 border border-slate-200{% endif %}">Todas</a>
+        {% for v, label in status_choices %}
+            <a href="?status={{ v }}" class="px-4 py-2 rounded-xl text-sm {% if status_atual == v %}bg-slate-900 text-white{% else %}bg-white text-slate-600 border border-slate-200{% endif %}">{{ label }}</a>
+        {% endfor %}
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="text-slate-400 border-b border-slate-100">
+                <tr>
+                    <th class="text-left font-medium px-6 py-3">Data e hora</th>
+                    <th class="text-left font-medium px-6 py-3">Tipo</th>
+                    <th class="text-left font-medium px-6 py-3">Processo</th>
+                    <th class="text-left font-medium px-6 py-3">Local</th>
+                    <th class="text-left font-medium px-6 py-3">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in audiencias %}
+                    <tr class="border-b border-slate-50">
+                        <td class="px-6 py-4 font-medium">{{ a.data_hora|date:"d/m/Y H:i" }}</td>
+                        <td class="px-6 py-4">{{ a.get_tipo_display }}</td>
+                        <td class="px-6 py-4 text-slate-500">{{ a.processo.titulo|default:"—" }}</td>
+                        <td class="px-6 py-4 text-slate-500">{% if a.link_virtual %}<a href="{{ a.link_virtual }}" class="text-indigo-600 hover:underline">Virtual</a>{% else %}{{ a.local|default:"—" }}{% endif %}</td>
+                        <td class="px-6 py-4">
+                            <span class="text-xs px-2.5 py-1 rounded-full {% if a.status == 'REALIZADA' %}bg-emerald-100 text-emerald-700{% elif a.status == 'CANCELADA' %}bg-red-100 text-red-700{% elif a.status == 'ADIADA' %}bg-amber-100 text-amber-700{% else %}bg-slate-200 text-slate-600{% endif %}">{{ a.get_status_display }}</span>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5" class="px-6 py-10 text-center text-slate-400">Nenhuma audiência cadastrada.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% include 'gestao/_modal.html' with modal_id='modal-audiencia' titulo='Nova audiência' action_url='/audiencias/' form=form %}
+{% include 'gestao/_modal_script.html' %}
+{% endblock %}
