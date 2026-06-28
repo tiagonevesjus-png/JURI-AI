@@ -1,8 +1,9 @@
-# Orquestração de produção: web (gunicorn), worker (fila assíncrona) e Postgres.
+# Orquestração de produção: caddy (HTTPS), web (gunicorn), worker (fila) e Postgres.
 # Uso:
-#   1) cp .env.example .env  e preencha as variáveis
-#   2) docker compose up -d --build
-#   3) acesse http://localhost:8000  (login com ADMIN_USERNAME/ADMIN_PASSWORD)
+#   1) cp .env.example .env  e preencha (DOMAIN, SECRET_KEY, ADMIN_PASSWORD, chaves...)
+#   2) aponte o DNS do domínio (A/AAAA) para o IP deste servidor
+#   3) docker compose up -d --build
+#   4) acesse https://SEU_DOMINIO  (HTTPS é emitido automaticamente pelo Caddy)
 
 services:
   db:
@@ -32,8 +33,23 @@ services:
     volumes:
       - media_data:/app/media
       - static_data:/app/staticfiles
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      - web
     ports:
-      - "8000:8000"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - media_data:/srv:ro
+      - caddy_data:/data
+      - caddy_config:/config
 
   worker:
     build: .
@@ -54,3 +70,5 @@ volumes:
   postgres_data:
   media_data:
   static_data:
+  caddy_data:
+  caddy_config:

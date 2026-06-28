@@ -145,19 +145,31 @@ A suíte cobre perfis/controle de acesso, multi-tenancy, fluxos de processos/pra
 
 ## 🚀 Deploy em produção (Docker)
 
-O sistema já vem pronto para subir em produção com **Docker Compose** (web + worker de fila + PostgreSQL).
+O sistema já vem pronto para subir em produção com **Docker Compose** (Caddy/HTTPS + web + worker de fila + PostgreSQL). O **Caddy emite e renova o certificado HTTPS automaticamente** (Let's Encrypt) assim que o domínio apontar para o servidor.
 
 ```bash
-# 1) Configure as variáveis de ambiente
-cp .env.example .env
-nano .env          # defina SECRET_KEY, ADMIN_PASSWORD, ANTHROPIC_API_KEY, etc.
+# 1) No servidor (VPS com Docker), clone o repositório
+git clone https://github.com/tiagonevesjus-png/JURI-AI.git && cd JURI-AI
 
-# 2) Suba os serviços (build + migração + criação do admin + estáticos)
+# 2) Configure as variáveis de ambiente
+cp .env.example .env
+nano .env     # DOMAIN, SECRET_KEY, ADMIN_PASSWORD, ANTHROPIC_API_KEY, senha do banco...
+
+# 3) Suba os serviços (build + migração + criação do admin + estáticos + HTTPS)
 docker compose up -d --build
 
-# 3) Acesse
-#    http://localhost:8000  (login com ADMIN_USERNAME / ADMIN_PASSWORD do .env)
+# 4) Acesse https://SEU_DOMINIO  (login com ADMIN_USERNAME / ADMIN_PASSWORD do .env)
 ```
+
+### Apontar o domínio (DNS)
+No painel do registrador (ex.: **Registro.br**), crie os registros apontando para o **IP do servidor**:
+
+| Tipo | Nome | Valor |
+|---|---|---|
+| `A` | `@` (ou o domínio) | IP público do servidor |
+| `A` | `www` | IP público do servidor |
+
+Após a propagação do DNS, o Caddy emite o certificado sozinho no primeiro acesso. **Abra as portas 80 e 443** no firewall do servidor.
 
 O que o start automático faz (via `docker/entrypoint.sh`):
 - aplica as migrações do banco;
@@ -185,11 +197,11 @@ O que o start automático faz (via `docker/entrypoint.sh`):
 ## ✅ O que falta para usar
 
 O sistema está **funcional e pronto para deploy**. Para colocar em uso real:
-1. **Servidor**: uma VM/host com Docker (qualquer provedor) e um domínio apontando para ele.
-2. **`.env`**: preencher `SECRET_KEY`, `ADMIN_PASSWORD`, `ALLOWED_HOSTS`/`CSRF_TRUSTED_ORIGINS` com o domínio e senha do banco.
-3. **HTTPS**: colocar atrás de um proxy (Caddy/Nginx/Traefik) com certificado — o Django já está preparado (`SECURE_*`/HSTS quando `DEBUG=False`).
+1. **Servidor**: uma VM/VPS com Docker (qualquer provedor) e IP público.
+2. **DNS**: apontar os registros `A` (`@` e `www`) do domínio para o IP do servidor.
+3. **`.env`**: preencher `DOMAIN`, `SECRET_KEY`, `ADMIN_PASSWORD` e a senha do banco.
 4. **(Opcional) IA**: definir `ANTHROPIC_API_KEY` (e `OPENAI_API_KEY` se usar embeddings na nuvem) para ligar o assistente jurídico.
-5. `docker compose up -d --build` e acessar pelo domínio.
+5. `docker compose up -d --build` — o **HTTPS é automático** (Caddy + Let's Encrypt).
 
 ---
 
