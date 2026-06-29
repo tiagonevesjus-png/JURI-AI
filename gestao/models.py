@@ -89,6 +89,11 @@ class Processo(models.Model):
     responsavel = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
                                     null=True, blank=True, related_name='processos_responsavel')
     observacoes = models.TextField('Observações', blank=True)
+    # Automação PJe / DataJud
+    monitorar_pje = models.BooleanField(
+        'Monitorar no PJe (DataJud)', default=True,
+        help_text='Sincronizar automaticamente as movimentações pela API do DataJud.')
+    pje_sincronizado_em = models.DateTimeField('Última sincronização (PJe)', null=True, blank=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='processos')
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
@@ -109,9 +114,16 @@ class Processo(models.Model):
 class MovimentacaoProcesso(models.Model):
     """Andamentos / movimentações registradas em um processo."""
 
+    ORIGEM_CHOICES = [
+        ('MANUAL', 'Registro manual'),
+        ('PJE', 'PJe / DataJud'),
+    ]
+
     processo = models.ForeignKey(Processo, on_delete=models.CASCADE, related_name='movimentacoes')
     data = models.DateField(default=timezone.now)
     descricao = models.TextField('Descrição')
+    origem = models.CharField(max_length=6, choices=ORIGEM_CHOICES, default='MANUAL')
+    codigo_movimento = models.CharField('Código (DataJud)', max_length=20, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:

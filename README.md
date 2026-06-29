@@ -44,6 +44,7 @@ O Juri-AI une segurança, automação e inteligência, transformando dados jurí
 ### 🗂️ Painel de Gestão Jurídica (app `gestao`)
 - **Dashboard / Indicadores:** visão geral com processos ativos, prazos a vencer, audiências próximas, tarefas abertas e resumo financeiro.
 - **Processos judiciais:** cadastro completo (número CNJ, área, vara, comarca, instância, valor da causa), filtros, busca e registro de movimentações/andamentos.
+- **Automação do PJe (DataJud):** sincroniza automaticamente as movimentações de cada processo pela [API Pública do DataJud (CNJ)](https://www.cnj.jus.br/sistemas/datajud/api-publica/), consultando pelo número CNJ. Veja a seção dedicada abaixo.
 - **Agenda:** linha do tempo unificada de compromissos e audiências.
 - **Audiências:** agendamento e acompanhamento por status (agendada, realizada, cancelada, adiada).
 - **Prazos:** controle de prazos processuais com prioridade, alerta de vencimento/atraso e marcação de cumprimento.
@@ -73,6 +74,38 @@ Pipeline de IA que processa cada documento enviado e permite consultá-los em li
 > ⚠️ Ao trocar de backend de embeddings, reindexe os documentos (apague a pasta `lancedb/`), pois as dimensões dos vetores mudam.
 >
 > Sem as chaves/dependências o sistema continua funcionando e o assistente exibe um aviso de configuração.
+
+---
+
+## ⚖️ Automação do PJe / DataJud (app `gestao`)
+
+Integração com a **API Pública do DataJud**, a base nacional de dados do Poder
+Judiciário mantida pelo CNJ. A partir do **número CNJ** do processo, o sistema
+descobre automaticamente o tribunal e importa o histórico de **movimentações**,
+sem scraping nem login por tribunal.
+
+- 🔎 **Consulta por número CNJ** — reconhece automaticamente o tribunal (Justiça
+  Estadual, Federal/TRFs, do Trabalho/TRTs e tribunais superiores).
+- 🔄 **Sincronização sob demanda** — botão **“Sincronizar com PJe”** na tela do
+  processo importa as movimentações novas (sem duplicar) e completa metadados
+  vazios (tribunal, vara/órgão, classe e data de ajuizamento).
+- 🏷️ As movimentações vindas do DataJud ficam marcadas com a etiqueta **PJe**.
+- 🤖 **Sincronização em lote** pelo management command, ideal para agendar:
+
+```bash
+# Todos os processos marcados para monitoramento:
+python manage.py sincronizar_pje
+
+# Um processo específico (por id ou por número CNJ):
+python manage.py sincronizar_pje --processo 12
+python manage.py sincronizar_pje --numero 0000832-35.2018.4.01.3202
+```
+
+> **Configuração:** funciona **sem configuração adicional** — a chave pública do
+> DataJud (divulgada pelo CNJ) já vem embutida. Para sobrescrever, defina
+> `DATAJUD_API_KEY` / `DATAJUD_API_URL`. Requer o pacote `requests` (já incluído).
+> Os campos `monitorar_pje` e `pje_sincronizado_em` do processo controlam o
+> monitoramento e registram a última sincronização.
 
 ---
 

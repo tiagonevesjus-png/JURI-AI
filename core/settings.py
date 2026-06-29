@@ -262,3 +262,18 @@ VOYAGE_API_KEY = os.environ.get('VOYAGE_API_KEY', '')
 IA_VOYAGE_MODEL = os.environ.get('IA_VOYAGE_MODEL', 'voyage-3')
 
 LANCEDB_PATH = os.environ.get('LANCEDB_PATH', os.path.join(BASE_DIR, 'lancedb'))
+
+# ---------------------------------------------------------------------------
+# Automação do PJe (API Pública do DataJud / CNJ)
+#
+# Consulta gratuita das movimentações processuais por número CNJ. A chave
+# abaixo é a chave PÚBLICA divulgada pelo próprio CNJ na documentação da API
+# Pública (não é um segredo do escritório); só sobrescreva se o CNJ publicar
+# uma nova. Ver gestao/pje.py e o comando `manage.py sincronizar_pje`.
+DATAJUD_API_KEY = os.environ.get(
+    'DATAJUD_API_KEY',
+    'cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGRQdw==',
+)
+DATAJUD_API_URL = os.environ.get(
+    'DATAJUD_API_URL', 'https://api-publica.datajud.cnj.jus.br'
+)

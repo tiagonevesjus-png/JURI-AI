@@ -20,9 +20,11 @@ class PerfilAdmin(admin.ModelAdmin):
 
 @admin.register(Processo)
 class ProcessoAdmin(admin.ModelAdmin):
-    list_display = ('titulo', 'numero', 'cliente', 'area', 'status', 'responsavel', 'criado_em')
-    list_filter = ('area', 'status', 'instancia')
+    list_display = ('titulo', 'numero', 'cliente', 'area', 'status', 'monitorar_pje',
+                    'pje_sincronizado_em', 'responsavel', 'criado_em')
+    list_filter = ('area', 'status', 'instancia', 'monitorar_pje')
     search_fields = ('titulo', 'numero', 'cliente__nome', 'parte_contraria')
+    readonly_fields = ('pje_sincronizado_em',)
     inlines = [MovimentacaoInline]
     date_hierarchy = 'criado_em'
 

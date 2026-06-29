@@ -131,6 +131,20 @@ def processo_detalhe(request, id):
     return render(request, 'gestao/processo_detalhe.html', contexto)
 
 
+@login_required
+def processo_sincronizar_pje(request, id):
+    """Importa as movimentações do processo pela API do DataJud (PJe)."""
+    processo = get_object_or_404(Processo, id=id, user=request.user)
+    from .tasks import sincronizar_processo_pje
+
+    resultado = sincronizar_processo_pje(processo.id)
+    if resultado.get('ok'):
+        messages.success(request, f'PJe: {resultado.get("mensagem")}')
+    else:
+        messages.error(request, f'PJe: {resultado.get("mensagem")}')
+    return redirect('processo_detalhe', id=processo.id)
+
+
 # ---------------------------------------------------------------------------
 # Agenda / Compromissos
 # ---------------------------------------------------------------------------
