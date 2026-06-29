@@ -1,22 +1,23 @@
-# Blueprint do Render.com — implanta a API + PostgreSQL no plano gratuito.
+# Blueprint do Render.com — implanta a API no plano gratuito, reaproveitando
+# um banco PostgreSQL que já existe na sua conta (o Render só permite 1 banco
+# free por conta).
+#
 # Como usar:
-#   1) Faça push deste repositório para o GitHub (já está).
-#   2) No Render: New > Blueprint > conecte o repositório > Apply.
-#   3) Após o primeiro deploy, em Environment defina os segredos marcados
-#      como "sync: false": ADMIN_PASSWORD, ANTHROPIC_API_KEY, OPENAI_API_KEY.
-#   4) (Opcional) Settings > Custom Domain > adicione tiagonevesadv.com.br.
+#   1) No Render: New > Blueprint > conecte o repositório > Apply.
+#   2) Em Environment do serviço "juriai", defina os segredos (sync: false):
+#        - DATABASE_URL    -> "Internal Database URL" do seu banco existente
+#        - ADMIN_PASSWORD  -> a senha do seu login
+#        - ANTHROPIC_API_KEY / OPENAI_API_KEY (se for usar a IA)
+#      Depois clique em "Manual Deploy" para aplicar.
+#   3) (Opcional) Settings > Custom Domain > adicione tiagonevesadv.com.br.
 #
 # Observações do plano gratuito:
 #   - O serviço web "hiberna" após inatividade (primeiro acesso ~50s).
-#   - O Postgres gratuito é removido após ~30 dias -> use os backups (OneDrive).
 #   - O disco é efêmero: dados da gestão ficam no Postgres (persistem); arquivos
 #     enviados e o índice de IA se perdem ao reiniciar (Q_SYNC processa inline).
-
-databases:
-  - name: juriai-db
-    plan: free
-    databaseName: juriai
-    user: juriai
+#
+# Dica: o ideal é um banco dedicado ao Juri-AI. Se reutilizar um banco já usado
+# por outro app, mantenha-o como Django/compatível para evitar conflito de tabelas.
 
 services:
   - type: web
@@ -34,9 +35,7 @@ services:
       - key: PYTHON_VERSION
         value: "3.12.7"
       - key: DATABASE_URL
-        fromDatabase:
-          name: juriai-db
-          property: connectionString
+        sync: false
       - key: SECRET_KEY
         generateValue: true
       - key: DEBUG
