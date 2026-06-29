@@ -1,0 +1,50 @@
+name: Backup do banco para o OneDrive
+
+# Faz um dump diário do PostgreSQL (Render) e envia para o OneDrive via rclone.
+# Roda de graça nos GitHub Actions — não precisa de servidor ligado.
+#
+# Pré-requisitos (Settings > Secrets and variables > Actions > New secret):
+#   DATABASE_URL_EXTERNAL : "External Database URL" do Postgres no Render.
+#   RCLONE_CONFIG_BASE64  : conteúdo do rclone.conf (com um remote OneDrive)
+#                           em base64. Gere localmente:
+#                             rclone config           # crie o remote "onedrive"
+#                             base64 -w0 ~/.config/rclone/rclone.conf
+#   (Opcional) ONEDRIVE_REMOTE : nome do remote/pasta (padrão: onedrive:JuriAI-Backups)
+
+on:
+  schedule:
+    - cron: "17 6 * * *"   # ~03:17 (horário de Brasília) todos os dias
+  workflow_dispatch:        # permite rodar manualmente pelo painel do GitHub
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Instalar pg_dump 16 e rclone
+        run: |
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-16
+          curl -fsSL https://rclone.org/install.sh | sudo bash
+
+      - name: Configurar rclone (OneDrive)
+        run: |
+          mkdir -p ~/.config/rclone
+          echo "${{ secrets.RCLONE_CONFIG_BASE64 }}" | base64 -d > ~/.config/rclone/rclone.conf
+
+      - name: Gerar dump e enviar ao OneDrive
+        env:
+          DATABASE_URL_EXTERNAL: ${{ secrets.DATABASE_URL_EXTERNAL }}
+          ONEDRIVE_REMOTE: ${{ secrets.ONEDRIVE_REMOTE }}
+        run: |
+          set -euo pipefail
+          REMOTE="${ONEDRIVE_REMOTE:-onedrive:JuriAI-Backups}"
+          ARQUIVO="juriai-$(date +%Y%m%d-%H%M%S).sql.gz"
+          echo "Gerando dump..."
+          pg_dump "$DATABASE_URL_EXTERNAL" | gzip > "$ARQUIVO"
+          echo "Enviando para $REMOTE ..."
+          rclone copy "$ARQUIVO" "$REMOTE" --onedrive-no-versions
+          echo "Backup concluído: $ARQUIVO"
+          # Mantém apenas os últimos 30 backups na pasta do OneDrive.
+          rclone delete "$REMOTE" --min-age 30d --include "juriai-*.sql.gz" || true
