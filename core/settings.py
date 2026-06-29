@@ -44,6 +44,15 @@ CSRF_TRUSTED_ORIGINS = [
     o.strip() for o in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()
 ]
 
+# No Render, o host público é injetado automaticamente — inclui sem precisar configurar.
+_render_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if _render_host:
+    if _render_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_render_host)
+    _render_origin = f'https://{_render_host}'
+    if _render_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(_render_origin)
+
 # Nome do escritório exibido na interface (login, menu lateral, título).
 ESCRITORIO_NOME = os.environ.get('ESCRITORIO_NOME', 'Tiago Neves Advocacia Empresarial')
 
@@ -57,6 +66,9 @@ Q_CLUSTER = {
     'orm': 'default',
     'save_limit': 250,
     'catch_up': False,
+    # Q_SYNC=True processa as tarefas no próprio processo (sem worker separado).
+    # Útil no plano gratuito do Render, que não permite um serviço de worker.
+    'sync': _env_bool('Q_SYNC', False),
 }
 
 
@@ -111,8 +123,28 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-# Por padrão usa SQLite. Definindo POSTGRES_DB no ambiente, usa PostgreSQL.
-if os.environ.get('POSTGRES_DB'):
+# Ordem de prioridade:
+#   1) DATABASE_URL  (formato usado pelo Render, Heroku, etc.)
+#   2) POSTGRES_DB   (variáveis separadas)
+#   3) SQLite        (desenvolvimento)
+import urllib.parse as _urlparse
+
+_database_url = os.environ.get('DATABASE_URL')
+if _database_url:
+    _u = _urlparse.urlparse(_database_url)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': _u.path.lstrip('/'),
+            'USER': _urlparse.unquote(_u.username or ''),
+            'PASSWORD': _urlparse.unquote(_u.password or ''),
+            'HOST': _u.hostname or '',
+            'PORT': str(_u.port or '5432'),
+            'CONN_MAX_AGE': 600,
+            'OPTIONS': {'sslmode': os.environ.get('DB_SSLMODE', 'prefer')},
+        }
+    }
+elif os.environ.get('POSTGRES_DB'):
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',

@@ -1,0 +1,65 @@
+# Blueprint do Render.com — implanta a API + PostgreSQL no plano gratuito.
+# Como usar:
+#   1) Faça push deste repositório para o GitHub (já está).
+#   2) No Render: New > Blueprint > conecte o repositório > Apply.
+#   3) Após o primeiro deploy, em Environment defina os segredos marcados
+#      como "sync: false": ADMIN_PASSWORD, ANTHROPIC_API_KEY, OPENAI_API_KEY.
+#   4) (Opcional) Settings > Custom Domain > adicione tiagonevesadv.com.br.
+#
+# Observações do plano gratuito:
+#   - O serviço web "hiberna" após inatividade (primeiro acesso ~50s).
+#   - O Postgres gratuito é removido após ~30 dias -> use os backups (OneDrive).
+#   - O disco é efêmero: dados da gestão ficam no Postgres (persistem); arquivos
+#     enviados e o índice de IA se perdem ao reiniciar (Q_SYNC processa inline).
+
+databases:
+  - name: juriai-db
+    plan: free
+    databaseName: juriai
+    user: juriai
+
+services:
+  - type: web
+    name: juriai
+    runtime: python
+    plan: free
+    branch: main
+    buildCommand: >-
+      pip install -r requirements-base.txt &&
+      python manage.py collectstatic --noinput &&
+      python manage.py migrate --noinput &&
+      python manage.py setup_inicial
+    startCommand: gunicorn core.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: juriai-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: SECURE_SSL_REDIRECT
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "tiagonevesadv.com.br,www.tiagonevesadv.com.br"
+      - key: CSRF_TRUSTED_ORIGINS
+        value: "https://tiagonevesadv.com.br,https://www.tiagonevesadv.com.br"
+      - key: ESCRITORIO_NOME
+        value: "Tiago Neves Advocacia Empresarial"
+      - key: Q_SYNC
+        value: "True"
+      - key: ADMIN_USERNAME
+        value: tiago
+      - key: ADMIN_EMAIL
+        value: tiagoneves.jus@gmail.com
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: IA_EMBEDDING_BACKEND
+        value: openai
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false

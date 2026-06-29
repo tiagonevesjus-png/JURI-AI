@@ -194,6 +194,35 @@ O que o start automático faz (via `docker/entrypoint.sh`):
 
 ---
 
+## ☁️ Deploy gratuito (Render.com + backup no OneDrive)
+
+Opção **sem custo e sem cartão**: o Render hospeda a API e o PostgreSQL, com SSL automático; os backups vão para o seu OneDrive.
+
+### 1) Subir no Render
+1. Garanta o repositório no GitHub (já está).
+2. No **Render** → **New** → **Blueprint** → conecte o repositório → **Apply**. O `render.yaml` cria o **web service** + **PostgreSQL** automaticamente.
+3. Após o 1º deploy, em **Environment**, defina os segredos: `ADMIN_PASSWORD` e, se for usar IA, `ANTHROPIC_API_KEY` e `OPENAI_API_KEY`. Faça um **Manual Deploy** para aplicar.
+4. Acesse a URL `https://juriai.onrender.com` (login com `tiago` / `ADMIN_PASSWORD`).
+5. **Domínio próprio:** em **Settings → Custom Domains**, adicione `tiagonevesadv.com.br` e crie no Registro.br um registro **CNAME** (`www`) apontando para o host do Render, ou siga as instruções exibidas pelo Render. O SSL é emitido automaticamente.
+
+### 2) Backups automáticos no OneDrive
+O workflow `.github/workflows/backup.yml` faz um dump diário do banco e envia ao OneDrive (roda nos GitHub Actions, de graça). Configure os **Secrets** do repositório (Settings → Secrets and variables → Actions):
+- `DATABASE_URL_EXTERNAL` — a *External Database URL* do Postgres no Render.
+- `RCLONE_CONFIG_BASE64` — seu `rclone.conf` (com um remote OneDrive) em base64:
+  ```bash
+  rclone config                                  # crie um remote chamado "onedrive"
+  base64 -w0 ~/.config/rclone/rclone.conf        # cole o resultado no secret
+  ```
+- *(opcional)* `ONEDRIVE_REMOTE` — pasta de destino (padrão `onedrive:JuriAI-Backups`).
+
+> **Limitações do plano gratuito do Render (importante para uso real):**
+> - O serviço **hiberna** após ~15 min sem acesso (primeiro acesso seguinte demora ~50s).
+> - O **PostgreSQL gratuito é removido após ~30 dias** — os backups no OneDrive são a sua rede de segurança; para uso contínuo, o banco pago do Render custa ~US$ 7/mês.
+> - O **disco é efêmero**: os dados da gestão (no Postgres) persistem, mas **arquivos enviados e o índice de IA se perdem ao reiniciar**. Para mantê-los, use um disco persistente (instância paga) ou armazenamento externo.
+> - Os dados ficam em datacenter fora do Brasil — avalie a questão de **LGPD** para dados sensíveis de clientes.
+
+---
+
 ## ✅ O que falta para usar
 
 O sistema está **funcional e pronto para deploy**. Para colocar em uso real:
