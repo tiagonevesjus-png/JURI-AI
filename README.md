@@ -198,6 +198,10 @@ O que o start automático faz (via `docker/entrypoint.sh`):
 
 Opção **sem custo e sem cartão**: o Render hospeda a API e o PostgreSQL, com SSL automático; os backups vão para o seu OneDrive.
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/tiagonevesjus-png/JURI-AI)
+
+> Clique no botão acima (faça login no Render com o GitHub), revise os serviços que o `render.yaml` propõe e clique **Apply**. Em seguida defina os segredos (`ADMIN_PASSWORD` e, se for usar IA, `ANTHROPIC_API_KEY`/`OPENAI_API_KEY`).
+
 ### 1) Subir no Render
 1. Garanta o repositório no GitHub (já está).
 2. No **Render** → **New** → **Blueprint** → conecte o repositório → **Apply**. O `render.yaml` cria o **web service** + **PostgreSQL** automaticamente.
