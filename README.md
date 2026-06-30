@@ -101,11 +101,29 @@ python manage.py sincronizar_pje --processo 12
 python manage.py sincronizar_pje --numero 0000832-35.2018.4.01.3202
 ```
 
+- ⏰ **Rodando sozinho (agendado)** — sem ninguém clicar:
+
+```bash
+# Registra o agendamento (django-q) — padrão: diariamente às 06:00:
+python manage.py agendar_pje
+python manage.py agendar_pje --hora 7 --minuto 30   # outro horário
+python manage.py agendar_pje --minutos 60           # de hora em hora
+python manage.py agendar_pje --desativar            # remove o agendamento
+```
+
+> **Onde o agendamento dispara:**
+> - **Docker Compose:** já há o serviço `worker` (`qcluster`); o `entrypoint`
+>   registra o agendamento automaticamente no deploy — **funciona sem ajustes**.
+> - **Render (plano grátis):** roda em modo `Q_SYNC` (sem worker), então o
+>   agendamento do django-q não dispara sozinho. Use um **Cron Job do Render**
+>   (bloco opcional já preparado em `render.yaml`) chamando `sincronizar_pje`.
+
 > **Configuração:** funciona **sem configuração adicional** — a chave pública do
 > DataJud (divulgada pelo CNJ) já vem embutida. Para sobrescrever, defina
 > `DATAJUD_API_KEY` / `DATAJUD_API_URL`. Requer o pacote `requests` (já incluído).
 > Os campos `monitorar_pje` e `pje_sincronizado_em` do processo controlam o
-> monitoramento e registram a última sincronização.
+> monitoramento e registram a última sincronização. O intervalo padrão do
+> agendamento pode vir de `PJE_SYNC_MINUTOS` ou `PJE_SYNC_HORA`.
 
 ---
 

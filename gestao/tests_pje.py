@@ -4,6 +4,7 @@ from datetime import date
 from unittest import mock
 
 from django.contrib.auth.models import User
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
@@ -164,3 +165,31 @@ class SincronizacaoTest(TestCase):
         resp = self.client.post(
             reverse('processo_sincronizar_pje', args=[self.processo.id]))
         self.assertEqual(resp.status_code, 404)
+
+
+class AgendamentoTest(TestCase):
+    def test_agenda_diario(self):
+        from django_q.models import Schedule
+
+        call_command('agendar_pje', '--hora', '6')
+        agendamento = Schedule.objects.get(name='pje:sincronizacao')
+        self.assertEqual(agendamento.func, 'gestao.tasks.sincronizar_monitorados')
+        self.assertEqual(agendamento.schedule_type, Schedule.DAILY)
+        self.assertEqual(agendamento.repeats, -1)
+
+    def test_agenda_por_minutos(self):
+        from django_q.models import Schedule
+
+        call_command('agendar_pje', '--minutos', '30')
+        agendamento = Schedule.objects.get(name='pje:sincronizacao')
+        self.assertEqual(agendamento.schedule_type, Schedule.MINUTES)
+        self.assertEqual(agendamento.minutes, 30)
+
+    def test_idempotente_e_desativar(self):
+        from django_q.models import Schedule
+
+        call_command('agendar_pje')
+        call_command('agendar_pje')  # não duplica
+        self.assertEqual(Schedule.objects.filter(name='pje:sincronizacao').count(), 1)
+        call_command('agendar_pje', '--desativar')
+        self.assertFalse(Schedule.objects.filter(name='pje:sincronizacao').exists())

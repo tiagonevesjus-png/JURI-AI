@@ -62,3 +62,24 @@ services:
         sync: false
       - key: OPENAI_API_KEY
         sync: false
+
+  # ---------------------------------------------------------------------------
+  # (Opcional) Sincronização automática com o PJe/DataJud.
+  #
+  # No plano gratuito não há worker (Q_SYNC), então o agendamento do django-q
+  # não dispara sozinho. Para rodar a sincronização periodicamente, use um Cron
+  # Job do Render (recurso pago). Descomente o bloco abaixo e informe a mesma
+  # DATABASE_URL do serviço web. O schedule está em UTC (09:00 UTC = 06:00 BRT).
+  #
+  # - type: cron
+  #   name: juriai-pje-sync
+  #   runtime: python
+  #   branch: main
+  #   schedule: "0 9 * * *"
+  #   buildCommand: pip install -r requirements-base.txt
+  #   startCommand: python manage.py sincronizar_pje
+  #   envVars:
+  #     - key: PYTHON_VERSION
+  #       value: "3.12.7"
+  #     - key: DATABASE_URL
+  #       sync: false
