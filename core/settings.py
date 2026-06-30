@@ -140,8 +140,15 @@ if _database_url:
             'PASSWORD': _urlparse.unquote(_u.password or ''),
             'HOST': _u.hostname or '',
             'PORT': str(_u.port or '5432'),
-            'CONN_MAX_AGE': 600,
-            'OPTIONS': {'sslmode': os.environ.get('DB_SSLMODE', 'prefer')},
+            # Conexão nova por requisição (seguro com poolers e bancos que
+            # hibernam, como Neon free / Render free). Ajustável por ambiente.
+            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', '0')),
+            'OPTIONS': {
+                'sslmode': os.environ.get('DB_SSLMODE', 'require'),
+                # Desativa prepared statements -> compatível com PgBouncer
+                # em modo transaction (endpoint -pooler do Neon).
+                'prepare_threshold': None,
+            },
         }
     }
 elif os.environ.get('POSTGRES_DB'):
