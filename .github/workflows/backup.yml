@@ -14,8 +14,10 @@ name: Backup do banco para o OneDrive
 #   (Opcional) ONEDRIVE_REMOTE : nome do remote/pasta (padrão: onedrive:JuriAI-Backups)
 
 on:
-  schedule:
-    - cron: "17 6 * * *"   # ~03:17 (horário de Brasília) todos os dias
+  # Agendamento diário DESATIVADO até os secrets serem configurados
+  # (DATABASE_URL_EXTERNAL e RCLONE_CONFIG_BASE64). Para reativar, descomente:
+  # schedule:
+  #   - cron: "17 6 * * *"   # ~03:17 (horário de Brasília) todos os dias
   workflow_dispatch:        # permite rodar manualmente pelo painel do GitHub
 
 jobs:
