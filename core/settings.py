@@ -53,6 +53,17 @@ if _render_host:
     if _render_origin not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(_render_origin)
 
+# Domínio principal do escritório: libera automaticamente o domínio e TODOS os
+# seus subdomínios (app., www., etc.), sem precisar editar variáveis a cada um.
+PRIMARY_DOMAIN = os.environ.get('PRIMARY_DOMAIN', 'tiagonevesadv.com.br')
+if PRIMARY_DOMAIN:
+    _wildcard_host = f'.{PRIMARY_DOMAIN}'  # ponto inicial = domínio + subdomínios
+    if _wildcard_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_wildcard_host)
+    for _origin in (f'https://{PRIMARY_DOMAIN}', f'https://*.{PRIMARY_DOMAIN}'):
+        if _origin not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(_origin)
+
 # Nome do escritório exibido na interface (login, menu lateral, título).
 ESCRITORIO_NOME = os.environ.get('ESCRITORIO_NOME', 'Tiago Neves Advocacia Empresarial')
 
