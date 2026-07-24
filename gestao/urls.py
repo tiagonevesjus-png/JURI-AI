@@ -9,6 +9,9 @@ urlpatterns = [
     path('processos/', views.processos, name='processos'),
     path('processos/novo/', views.processo_novo, name='processo_novo'),
     path('processos/<int:id>/', views.processo_detalhe, name='processo_detalhe'),
+    path('processos/<int:id>/sincronizar-datajud/', views.processo_sincronizar_datajud,
+         name='processo_sincronizar_datajud'),
+    path('publicacoes/', views.publicacoes_djen, name='publicacoes_djen'),
 
     # Agenda
     path('agenda/', views.agenda, name='agenda'),

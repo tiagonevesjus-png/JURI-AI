@@ -82,6 +82,8 @@ class Processo(models.Model):
     vara = models.CharField('Vara / Órgão', max_length=255, blank=True)
     comarca = models.CharField('Comarca / Foro', max_length=255, blank=True)
     tribunal = models.CharField(max_length=255, blank=True)
+    datajud_alias = models.CharField(max_length=80, blank=True)
+    ultima_sincronizacao_datajud = models.DateTimeField(null=True, blank=True)
     instancia = models.CharField(max_length=3, choices=INSTANCIA_CHOICES, default='1')
     valor_causa = models.DecimalField('Valor da causa', max_digits=14, decimal_places=2, null=True, blank=True)
     status = models.CharField(max_length=12, choices=STATUS_CHOICES, default='ANDAMENTO')
@@ -111,6 +113,10 @@ class MovimentacaoProcesso(models.Model):
 
     processo = models.ForeignKey(Processo, on_delete=models.CASCADE, related_name='movimentacoes')
     data = models.DateField(default=timezone.now)
+    data_hora = models.DateTimeField(null=True, blank=True)
+    fonte = models.CharField(max_length=20, default='MANUAL')
+    codigo_tpu = models.CharField(max_length=40, blank=True)
+    referencia_externa = models.CharField(max_length=64, blank=True, null=True)
     descricao = models.TextField('Descrição')
     criado_em = models.DateTimeField(auto_now_add=True)
 
@@ -121,6 +127,38 @@ class MovimentacaoProcesso(models.Model):
 
     def __str__(self):
         return f'{self.processo} - {self.data}'
+
+
+class PublicacaoDJEN(models.Model):
+    """Comunicação pública obtida pelo endpoint de leitura do DJEN."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             related_name='publicacoes_djen')
+    processo = models.ForeignKey(Processo, on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name='publicacoes_djen')
+    identificador_externo = models.CharField(max_length=100)
+    numero_processo = models.CharField(max_length=30, blank=True)
+    data_disponibilizacao = models.DateField(null=True, blank=True)
+    tribunal = models.CharField(max_length=30, blank=True)
+    tipo_comunicacao = models.CharField(max_length=100, blank=True)
+    orgao = models.CharField(max_length=255, blank=True)
+    texto = models.TextField(blank=True)
+    link = models.URLField(blank=True)
+    dados = models.JSONField(default=dict, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Publicação DJEN'
+        verbose_name_plural = 'Publicações DJEN'
+        ordering = ['-data_disponibilizacao', '-criado_em']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'identificador_externo'],
+                                    name='publicacao_djen_usuario_identificador_unico'),
+        ]
+
+    def __str__(self):
+        return f'{self.tribunal or "DJEN"} - {self.numero_processo or self.identificador_externo}'
 
 
 # ---------------------------------------------------------------------------

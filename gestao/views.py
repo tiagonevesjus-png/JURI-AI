@@ -16,7 +16,10 @@ from .forms import (
 )
 from .models import (
     Perfil, Processo, Audiencia, Prazo, Tarefa, Compromisso, LancamentoFinanceiro,
+    PublicacaoDJEN,
 )
+from .services.datajud import DataJudError, sincronizar as sincronizar_datajud
+from .services.djen import DJENError, sincronizar as sincronizar_djen
 
 
 # ---------------------------------------------------------------------------
@@ -129,6 +132,40 @@ def processo_detalhe(request, id):
         'mov_form': MovimentacaoForm(user=request.user),
     }
     return render(request, 'gestao/processo_detalhe.html', contexto)
+
+
+@login_required
+def processo_sincronizar_datajud(request, id):
+    if request.method != 'POST':
+        return redirect('processo_detalhe', id=id)
+    processo = get_object_or_404(Processo, id=id, user=request.user)
+    try:
+        novas = sincronizar_datajud(processo)
+    except DataJudError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, f'DataJud sincronizado: {novas} nova(s) movimentacao(oes).')
+    return redirect('processo_detalhe', id=id)
+
+
+@login_required
+def publicacoes_djen(request):
+    """Tela de leitura das publicações trazidas da API pública do DJEN."""
+    hoje = timezone.localdate()
+    inicio = hoje - timedelta(days=1)
+    if request.method == 'POST':
+        try:
+            novas, encontradas = sincronizar_djen(request.user, inicio, hoje)
+        except DJENError as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, f'DJEN sincronizado: {novas} nova(s) publicação(ões) de {encontradas} encontrada(s).')
+        return redirect('publicacoes_djen')
+    return render(request, 'gestao/publicacoes_djen.html', {
+        'publicacoes': PublicacaoDJEN.objects.filter(user=request.user).select_related('processo')[:100],
+        'inicio_consulta': inicio,
+        'fim_consulta': hoje,
+    })
 
 
 # ---------------------------------------------------------------------------

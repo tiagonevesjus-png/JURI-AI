@@ -1,13 +1,16 @@
 """Testes do app de gestão jurídica: perfis/acesso, multi-tenancy e fluxos."""
 
+import os
 from datetime import date, timedelta
+from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
 
 from usuarios.models import Cliente
-from .models import Perfil, Processo, Prazo, Tarefa, LancamentoFinanceiro
+from .models import Perfil, Processo, Prazo, Tarefa, LancamentoFinanceiro, PublicacaoDJEN
+from .services.djen import sincronizar as sincronizar_djen
 
 
 class PerfilSignalTest(TestCase):
@@ -58,6 +61,47 @@ class ProcessoFluxoTest(TestCase):
         })
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(proc.movimentacoes.count(), 1)
+
+    def test_publicacoes_exigem_login_e_respeitam_usuario(self):
+        outro = User.objects.create_user('outro', password='x12345678')
+        PublicacaoDJEN.objects.create(user=outro, identificador_externo='1', texto='Publicação de outro usuário')
+        resp = self.client.get(reverse('publicacoes_djen'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, 'Publicação de outro usuário')
+
+
+class DJENServiceTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('advdjen', password='x12345678')
+        self.cliente = Cliente.objects.create(nome='Cliente DJEN', email='djen@x.com', user=self.user)
+        self.processo = Processo.objects.create(
+            titulo='Processo monitorado', cliente=self.cliente, user=self.user,
+            numero='0016068-39.2026.5.16.0003',
+        )
+
+    @patch.dict(os.environ, {'DJEN_OAB_NUMERO': '10042', 'DJEN_OAB_UF': 'MA'}, clear=False)
+    @patch('gestao.services.djen._cliente_http')
+    def test_sincroniza_e_deduplica_publicacoes(self, cliente_http):
+        resposta = Mock()
+        resposta.status_code = 200
+        resposta.raise_for_status.return_value = None
+        resposta.json.return_value = {
+            'status': 'success', 'count': 1,
+            'items': [{
+                'id': 987, 'numero_processo': '00160683920265160003',
+                'numeroprocessocommascara': '0016068-39.2026.5.16.0003',
+                'data_disponibilizacao': '2026-07-22', 'siglaTribunal': 'TRT16',
+                'tipoComunicacao': 'Intimação', 'nomeOrgao': 'Vara de teste',
+                'texto': 'Teor de teste', 'link': 'https://exemplo.test/publicacao',
+            }],
+        }
+        cliente_http.return_value.get.return_value = resposta
+        novas, total = sincronizar_djen(self.user, date(2026, 7, 22), date(2026, 7, 22))
+        self.assertEqual((novas, total), (1, 1))
+        publicacao = PublicacaoDJEN.objects.get(user=self.user)
+        self.assertEqual(publicacao.processo, self.processo)
+        novas, total = sincronizar_djen(self.user, date(2026, 7, 22), date(2026, 7, 22))
+        self.assertEqual((novas, total), (0, 1))
 
 
 class MultiTenancyTest(TestCase):
