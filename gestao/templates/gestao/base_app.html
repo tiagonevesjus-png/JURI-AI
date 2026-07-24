@@ -16,6 +16,7 @@
             {% url 'clientes' as u_cli %}
             {% url 'processos' as u_proc %}
             {% url 'publicacoes_djen' as u_pub %}
+            {% url 'notificacoes' as u_not %}
             {% url 'agenda' as u_age %}
             {% url 'prazos' as u_pra %}
             {% url 'audiencias' as u_aud %}
@@ -39,6 +40,7 @@
             <a href="{% url 'acessos' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == '/acessos/' %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">🔐 <span>Controle de acessos</span></a>
             {% endif %}
             <a href="/admin/" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100">⚙️ <span>Admin Django</span></a>
+            <a href="{{ u_not }}" class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100"><span>Notificações</span>{% if notificacoes_nao_lidas %}<span class="rounded-full bg-red-500 text-white px-2 py-0.5 text-xs">{{ notificacoes_nao_lidas }}</span>{% endif %}</a>
             {% endwith %}
         </nav>
         <div class="px-4 py-4 border-t border-slate-100">
@@ -77,4 +79,9 @@
         </main>
     </div>
 </div>
+<script>
+if ('Notification' in window && Notification.permission === 'granted') {
+  setInterval(async () => { const r = await fetch('{% url "notificacoes_feed" %}'); if (!r.ok) return; for (const n of await r.json()) new Notification(n.titulo, {body: n.mensagem || n.prioridade, tag: 'juriai-' + n.id}); }, 60000);
+}
+</script>
 {% endblock 'body' %}

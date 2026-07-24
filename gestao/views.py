@@ -1,6 +1,7 @@
 """Views do painel de gestão jurídica (dashboard, processos, agenda,
 prazos, audiências, tarefas, financeiro, relatórios e controle de acessos)."""
 
+import json
 from datetime import timedelta
 
 from django.contrib import messages
@@ -22,6 +23,7 @@ from .models import (
 from .services.datajud import DataJudError, sincronizar as sincronizar_datajud
 from .services.djen import DJENError, sincronizar as sincronizar_djen
 from .services.google_workspace import GoogleWorkspaceError, concluir_autorizacao
+from .models import Notificacao
 
 
 def google_oauth_callback(request):
@@ -42,6 +44,27 @@ def google_oauth_callback(request):
         '<h2>Google conectado com sucesso.</h2><p>Gmail e Google Agenda estão autorizados somente para leitura. Você pode fechar esta janela.</p>',
         content_type='text/html; charset=utf-8',
     )
+
+
+@login_required
+def notificacoes(request):
+    itens = Notificacao.objects.filter(user=request.user)
+    return render(request, 'gestao/notificacoes.html', {'notificacoes': itens[:200]})
+
+
+@login_required
+def notificacoes_feed(request):
+    itens = Notificacao.objects.filter(user=request.user, lida_em__isnull=True)[:20]
+    return HttpResponse(json.dumps([{'id': n.id, 'titulo': n.titulo, 'mensagem': n.mensagem, 'prioridade': n.prioridade} for n in itens]), content_type='application/json')
+
+
+@login_required
+def notificacao_ler(request, id):
+    if request.method == 'POST':
+        alerta = get_object_or_404(Notificacao, id=id, user=request.user)
+        alerta.lida_em = timezone.now()
+        alerta.save(update_fields=['lida_em'])
+    return redirect('notificacoes')
 
 
 # ---------------------------------------------------------------------------

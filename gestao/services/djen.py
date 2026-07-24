@@ -10,6 +10,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from gestao.models import Processo, PublicacaoDJEN
+from gestao.services.notificacoes import criar as criar_notificacao
 
 
 BASE_URL = 'https://comunicaapi.pje.jus.br/api/v1/comunicacao'
@@ -117,5 +118,9 @@ def sincronizar(user, inicio: date, fim: date):
                 'dados': item,
             },
         )
-        novas += int(criada)
+        if criada:
+            novas += 1
+            criar_notificacao(user, 'DJEN', f'Nova publicação DJEN: {item.get("siglaTribunal") or "tribunal"}',
+                              (item.get('tipoComunicacao') or item.get('texto') or 'Nova comunicação processual.')[:2000],
+                              prioridade='ALTA', link=item.get('link') or '', dados={'identificador': _identificador(item)})
     return novas, len(corpo.get('items') or [])

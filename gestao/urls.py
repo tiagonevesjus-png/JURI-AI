@@ -4,6 +4,9 @@ from . import views
 
 urlpatterns = [
     path('', views.dashboard, name='dashboard'),
+    path('notificacoes/', views.notificacoes, name='notificacoes'),
+    path('notificacoes/feed/', views.notificacoes_feed, name='notificacoes_feed'),
+    path('notificacoes/<int:id>/ler/', views.notificacao_ler, name='notificacao_ler'),
 
     # Processos
     path('processos/', views.processos, name='processos'),

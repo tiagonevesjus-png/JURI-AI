@@ -194,6 +194,35 @@ class ItemGoogle(models.Model):
         return f'{self.get_fonte_display()}: {self.titulo}'
 
 
+class Notificacao(models.Model):
+    """Alerta interno com rastreio dos canais externos de entrega."""
+
+    TIPO_CHOICES = [
+        ('DJEN', 'Publicação DJEN'), ('GMAIL', 'Gmail'), ('AGENDA', 'Google Agenda'),
+        ('PRAZO', 'Prazo'), ('AUDIENCIA', 'Audiência'), ('SISTEMA', 'Sistema'),
+    ]
+    PRIORIDADE_CHOICES = [('BAIXA', 'Baixa'), ('NORMAL', 'Normal'), ('ALTA', 'Alta'), ('URGENTE', 'Urgente')]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notificacoes')
+    tipo = models.CharField(max_length=12, choices=TIPO_CHOICES, default='SISTEMA')
+    prioridade = models.CharField(max_length=10, choices=PRIORIDADE_CHOICES, default='NORMAL')
+    titulo = models.CharField(max_length=255)
+    mensagem = models.TextField(blank=True)
+    link = models.URLField(blank=True)
+    dados = models.JSONField(default=dict, blank=True)
+    lida_em = models.DateTimeField(null=True, blank=True)
+    entregas = models.JSONField(default=dict, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-criado_em']
+        indexes = [models.Index(fields=['user', 'lida_em', '-criado_em'])]
+
+    @property
+    def lida(self):
+        return self.lida_em is not None
+
+
 # ---------------------------------------------------------------------------
 # Audiências
 # ---------------------------------------------------------------------------

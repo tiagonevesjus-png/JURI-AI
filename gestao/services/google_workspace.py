@@ -17,6 +17,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from gestao.models import ItemGoogle
+from gestao.services.notificacoes import criar as criar_notificacao
 
 
 AUTHORIZATION_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
@@ -266,6 +267,9 @@ def sincronizar(user):
                          f'https://mail.google.com/mail/u/0/#all/{mensagem["id"]}',
                          mensagem.get('snippet', ''), {'remetente': remetente, 'thread_id': mensagem.get('threadId', '')}):
             novas_gmail += 1
+            criar_notificacao(user, 'GMAIL', f'Novo e-mail: {subject or "sem assunto"}',
+                              f'Remetente: {remetente}', link=f'https://mail.google.com/mail/u/0/#all/{mensagem["id"]}',
+                              dados={'id': mensagem['id']})
 
     inicio = timezone.now()
     fim = inicio + timedelta(days=dias_agenda)
@@ -283,4 +287,6 @@ def sincronizar(user):
                          evento.get('htmlLink', ''), evento.get('location', ''),
                          {'status': evento.get('status', ''), 'fim': evento.get('end', {})}):
             novas_agenda += 1
+            criar_notificacao(user, 'AGENDA', f'Novo evento: {evento.get("summary") or "sem título"}',
+                              evento.get('location', ''), link=evento.get('htmlLink', ''), dados={'id': evento['id']})
     return novas_gmail, novas_agenda, len(mensagens), len(eventos)
