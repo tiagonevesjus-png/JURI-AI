@@ -161,6 +161,39 @@ class PublicacaoDJEN(models.Model):
         return f'{self.tribunal or "DJEN"} - {self.numero_processo or self.identificador_externo}'
 
 
+class ItemGoogle(models.Model):
+    """Registro local e minimizado de itens lidos do Gmail e da Agenda."""
+
+    FONTE_CHOICES = [
+        ('GMAIL', 'Gmail'),
+        ('AGENDA', 'Google Agenda'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             related_name='itens_google')
+    fonte = models.CharField(max_length=10, choices=FONTE_CHOICES)
+    identificador_externo = models.CharField(max_length=255)
+    titulo = models.CharField(max_length=500)
+    ocorrido_em = models.DateTimeField(null=True, blank=True)
+    link = models.URLField(blank=True)
+    resumo = models.TextField(blank=True)
+    dados = models.JSONField(default=dict, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Item Google'
+        verbose_name_plural = 'Itens Google'
+        ordering = ['-ocorrido_em', '-atualizado_em']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'fonte', 'identificador_externo'],
+                                    name='item_google_usuario_fonte_identificador_unico'),
+        ]
+
+    def __str__(self):
+        return f'{self.get_fonte_display()}: {self.titulo}'
+
+
 # ---------------------------------------------------------------------------
 # Audiências
 # ---------------------------------------------------------------------------

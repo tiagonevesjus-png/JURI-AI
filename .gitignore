@@ -65,6 +65,10 @@ staticfiles/
 lancedb/
 backups/
 diagnosticos/
+data/google-oauth-token.json
+# Estado local, códigos OAuth e logs de integrações; manter apenas o marcador da pasta.
+data/*
+!data/.gitkeep
 
 # Flask stuff:
 instance/

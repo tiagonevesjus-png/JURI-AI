@@ -6,6 +6,7 @@ from datetime import timedelta
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum, Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
@@ -20,6 +21,27 @@ from .models import (
 )
 from .services.datajud import DataJudError, sincronizar as sincronizar_datajud
 from .services.djen import DJENError, sincronizar as sincronizar_djen
+from .services.google_workspace import GoogleWorkspaceError, concluir_autorizacao
+
+
+def google_oauth_callback(request):
+    """Recebe o retorno OAuth no Django, sem depender de servidor temporário."""
+    try:
+        concluir_autorizacao(
+            request.GET.get('state', ''),
+            request.GET.get('code', ''),
+            request.GET.get('error', ''),
+        )
+    except GoogleWorkspaceError as exc:
+        return HttpResponse(
+            f'<h2>Não foi possível concluir a autorização.</h2><p>{exc}</p>',
+            status=400,
+            content_type='text/html; charset=utf-8',
+        )
+    return HttpResponse(
+        '<h2>Google conectado com sucesso.</h2><p>Gmail e Google Agenda estão autorizados somente para leitura. Você pode fechar esta janela.</p>',
+        content_type='text/html; charset=utf-8',
+    )
 
 
 # ---------------------------------------------------------------------------
