@@ -8,8 +8,11 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum, Q
 from django.http import HttpResponse
+from django.http import JsonResponse
+from django.conf import settings
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from usuarios.models import Cliente
 from .forms import (
@@ -65,6 +68,48 @@ def notificacao_ler(request, id):
         alerta.lida_em = timezone.now()
         alerta.save(update_fields=['lida_em'])
     return redirect('notificacoes')
+
+
+@login_required
+def push_config(request):
+    """Expoe somente a chave publica necessaria para o navegador."""
+    habilitado = bool(settings.WEBPUSH_VAPID_PUBLIC_KEY and settings.WEBPUSH_VAPID_PRIVATE_KEY)
+    return JsonResponse({
+        'habilitado': habilitado,
+        'chave_publica': settings.WEBPUSH_VAPID_PUBLIC_KEY if habilitado else '',
+    })
+
+
+@login_required
+@require_POST
+def push_subscribe(request):
+    try:
+        dados = json.loads(request.body)
+        endpoint = dados['endpoint']
+        chaves = dados['keys']
+        p256dh, auth = chaves['p256dh'], chaves['auth']
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return JsonResponse({'erro': 'Inscricao push invalida.'}, status=400)
+    if not endpoint.startswith('https://'):
+        return JsonResponse({'erro': 'Endpoint push invalido.'}, status=400)
+    from .models import PushSubscription
+    PushSubscription.objects.update_or_create(
+        endpoint=endpoint,
+        defaults={'user': request.user, 'p256dh': p256dh, 'auth': auth},
+    )
+    return JsonResponse({'ok': True})
+
+
+@login_required
+@require_POST
+def push_unsubscribe(request):
+    try:
+        endpoint = json.loads(request.body)['endpoint']
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return JsonResponse({'erro': 'Endpoint push invalido.'}, status=400)
+    from .models import PushSubscription
+    PushSubscription.objects.filter(user=request.user, endpoint=endpoint).delete()
+    return JsonResponse({'ok': True})
 
 
 # ---------------------------------------------------------------------------

@@ -84,4 +84,5 @@ if ('Notification' in window && Notification.permission === 'granted') {
   setInterval(async () => { const r = await fetch('{% url "notificacoes_feed" %}'); if (!r.ok) return; for (const n of await r.json()) new Notification(n.titulo, {body: n.mensagem || n.prioridade, tag: 'juriai-' + n.id}); }, 60000);
 }
 </script>
+{% block extra_js %}{% endblock %}
 {% endblock 'body' %}

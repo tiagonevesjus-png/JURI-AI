@@ -7,6 +7,9 @@ urlpatterns = [
     path('notificacoes/', views.notificacoes, name='notificacoes'),
     path('notificacoes/feed/', views.notificacoes_feed, name='notificacoes_feed'),
     path('notificacoes/<int:id>/ler/', views.notificacao_ler, name='notificacao_ler'),
+    path('notificacoes/push/config/', views.push_config, name='push_config'),
+    path('notificacoes/push/subscribe/', views.push_subscribe, name='push_subscribe'),
+    path('notificacoes/push/unsubscribe/', views.push_unsubscribe, name='push_unsubscribe'),
 
     # Processos
     path('processos/', views.processos, name='processos'),

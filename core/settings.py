@@ -262,6 +262,13 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = _env_bool('EMAIL_USE_TLS', True)
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'juriai@localhost')
 
+# Push Web: as chaves VAPID ficam exclusivamente no ambiente local/de producao.
+WEBPUSH_VAPID_PUBLIC_KEY = os.environ.get('WEBPUSH_VAPID_PUBLIC_KEY', '')
+WEBPUSH_VAPID_PRIVATE_KEY = os.environ.get('WEBPUSH_VAPID_PRIVATE_KEY', '')
+WEBPUSH_VAPID_CLAIMS = {
+    'sub': os.environ.get('WEBPUSH_VAPID_SUBJECT', 'mailto:suporte@localhost'),
+}
+
 # Autenticação / redirecionamentos
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
