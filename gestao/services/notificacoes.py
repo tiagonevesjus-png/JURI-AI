@@ -63,7 +63,11 @@ def enviar(notificacao):
     destino = os.environ.get('ALERT_EMAIL_TO', '').strip() or notificacao.user.email
     if _ativo('NOTIFICATIONS_EMAIL_ENABLED') and destino:
         try:
-            send_mail(notificacao.titulo, texto, settings.DEFAULT_FROM_EMAIL, [destino], fail_silently=False)
+            if os.environ.get('NOTIFICATIONS_EMAIL_MODE', 'smtp').strip().lower() == 'google_oauth':
+                from gestao.services.google_workspace import enviar_email
+                enviar_email(destino, notificacao.titulo, texto)
+            else:
+                send_mail(notificacao.titulo, texto, settings.DEFAULT_FROM_EMAIL, [destino], fail_silently=False)
             resultado['email'] = 'enviado'
         except Exception as exc:  # transportes externos não podem derrubar a sincronização
             resultado['email'] = f'falhou: {type(exc).__name__}'

@@ -8,6 +8,7 @@ import secrets
 import time
 import webbrowser
 from datetime import datetime, timedelta, timezone as datetime_timezone
+from email.message import EmailMessage
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from urllib.parse import urlencode
@@ -26,6 +27,7 @@ GMAIL_URL = 'https://gmail.googleapis.com/gmail/v1/users/me'
 CALENDAR_URL = 'https://www.googleapis.com/calendar/v3'
 SCOPES = [
     'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/calendar.readonly',
 ]
 
@@ -220,6 +222,37 @@ def _get(url, params=None):
     if not resposta.ok:
         raise GoogleWorkspaceError(f'Consulta Google falhou: HTTP {resposta.status_code}.')
     return resposta.json()
+
+
+def enviar_email(destinatario, assunto, corpo):
+    """Envia alerta por Gmail usando o token OAuth local, sem senha SMTP."""
+    mensagem = EmailMessage()
+    mensagem['To'] = destinatario
+    remetente = os.environ.get('GOOGLE_EMAIL_FROM', '').strip()
+    if remetente:
+        mensagem['From'] = remetente
+    mensagem['Subject'] = assunto
+    mensagem.set_content(corpo)
+    conteudo = base64.urlsafe_b64encode(mensagem.as_bytes()).rstrip(b'=').decode('ascii')
+    resposta = requests.post(
+        f'{GMAIL_URL}/messages/send',
+        headers={'Authorization': f'Bearer {_access_token()}'},
+        json={'raw': conteudo},
+        timeout=(5, 25),
+    )
+    if resposta.status_code == 401:
+        token = _carregar_token()
+        token['expires_at'] = 0
+        _salvar_token(token)
+        resposta = requests.post(
+            f'{GMAIL_URL}/messages/send',
+            headers={'Authorization': f'Bearer {_access_token()}'},
+            json={'raw': conteudo},
+            timeout=(5, 25),
+        )
+    if not resposta.ok:
+        raise GoogleWorkspaceError(f'Envio Gmail falhou: HTTP {resposta.status_code}. Autorize novamente o escopo gmail.send.')
+    return resposta.json().get('id', '')
 
 
 def _data_gmail(headers):
