@@ -7,7 +7,7 @@ from datetime import timedelta
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum, Q
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse
 from django.http import JsonResponse
 from django.conf import settings
 from django.shortcuts import get_object_or_404, redirect, render
@@ -17,16 +17,18 @@ from django.views.decorators.http import require_POST
 from usuarios.models import Cliente
 from .forms import (
     ProcessoForm, MovimentacaoForm, AudienciaForm, PrazoForm, TarefaForm,
-    CompromissoForm, LancamentoForm,
+    CompromissoForm, LancamentoForm, SolicitacaoAssinaturaForm,
 )
 from .models import (
     Perfil, Processo, Audiencia, Prazo, Tarefa, Compromisso, LancamentoFinanceiro,
-    PublicacaoDJEN,
+    PublicacaoDJEN, SolicitacaoAssinatura,
 )
 from .services.datajud import DataJudError, sincronizar as sincronizar_datajud
 from .services.djen import DJENError, sincronizar as sincronizar_djen
 from .services.google_workspace import GoogleWorkspaceError, concluir_autorizacao
 from .models import Notificacao
+from .services.assinaturas import AssinaturaError, sha256_arquivo, validar_p7s
+from .services.notificacoes import criar as criar_notificacao
 
 
 def google_oauth_callback(request):
@@ -68,6 +70,70 @@ def notificacao_ler(request, id):
         alerta.lida_em = timezone.now()
         alerta.save(update_fields=['lida_em'])
     return redirect('notificacoes')
+
+
+@login_required
+def assinaturas(request):
+    """Central de assinatura assistida por DesktopID/PJeOffice."""
+    if request.method == 'POST':
+        form = SolicitacaoAssinaturaForm(request.POST, request.FILES, user=request.user)
+        if form.is_valid():
+            solicitacao = form.save(commit=False)
+            solicitacao.user = request.user
+            solicitacao.hash_original = sha256_arquivo(solicitacao.arquivo_original)
+            solicitacao.save()
+            messages.success(request, 'Documento preparado. Baixe o PDF, assine pelo PJeOffice e envie o arquivo .p7s retornado.')
+            return redirect('assinaturas')
+    else:
+        form = SolicitacaoAssinaturaForm(user=request.user)
+    itens = SolicitacaoAssinatura.objects.filter(user=request.user).select_related('processo')
+    return render(request, 'gestao/assinaturas.html', {'form': form, 'assinaturas': itens[:100]})
+
+
+@login_required
+def assinatura_baixar_original(request, uid):
+    solicitacao = get_object_or_404(SolicitacaoAssinatura, uid=uid, user=request.user)
+    solicitacao.status = 'EM_ASSINATURA'
+    solicitacao.save(update_fields=['status'])
+    return FileResponse(solicitacao.arquivo_original.open('rb'), as_attachment=True,
+                        filename=solicitacao.arquivo_original.name.rsplit('/', 1)[-1])
+
+
+@login_required
+@require_POST
+def assinatura_enviar_p7s(request, uid):
+    solicitacao = get_object_or_404(SolicitacaoAssinatura, uid=uid, user=request.user)
+    arquivo = request.FILES.get('arquivo_p7s')
+    if not arquivo or not arquivo.name.lower().endswith('.p7s'):
+        messages.error(request, 'Envie o arquivo .p7s gerado pelo PJeOffice.')
+        return redirect('assinaturas')
+    if arquivo.size > 10 * 1024 * 1024:
+        messages.error(request, 'O arquivo .p7s não pode ultrapassar 10 MB.')
+        return redirect('assinaturas')
+    try:
+        validacao = validar_p7s(solicitacao.arquivo_original, arquivo)
+    except AssinaturaError as exc:
+        solicitacao.status = 'FALHOU'
+        solicitacao.validacao = {'valida': False, 'erro': str(exc)}
+        solicitacao.save(update_fields=['status', 'validacao'])
+        messages.error(request, f'Não foi possível validar a assinatura: {exc}')
+        return redirect('assinaturas')
+    solicitacao.arquivo_p7s = arquivo
+    solicitacao.hash_p7s = sha256_arquivo(arquivo)
+    solicitacao.certificado_subject = validacao.get('subject', '')
+    solicitacao.certificado_issuer = validacao.get('issuer', '')
+    solicitacao.validacao = validacao
+    solicitacao.status = 'ASSINADO'
+    solicitacao.concluido_em = timezone.now()
+    solicitacao.save()
+    criar_notificacao(
+        request.user, 'SISTEMA', 'Documento assinado e validado',
+        f'{solicitacao.finalidade}: assinatura P7S validada com sucesso.',
+        prioridade='NORMAL', link=request.build_absolute_uri('/assinaturas/'),
+        dados={'solicitacao_assinatura': str(solicitacao.uid), 'hash_original': solicitacao.hash_original},
+    )
+    messages.success(request, 'Assinatura validada criptograficamente e registrada no JURI-AI.')
+    return redirect('assinaturas')
 
 
 @login_required

@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from .models import (
     Perfil, Processo, MovimentacaoProcesso, Audiencia, Prazo, Tarefa,
-    Compromisso, LancamentoFinanceiro,
+    Compromisso, LancamentoFinanceiro, SolicitacaoAssinatura,
 )
 
 
@@ -64,3 +64,11 @@ class LancamentoFinanceiroAdmin(admin.ModelAdmin):
     list_filter = ('tipo', 'categoria', 'status')
     search_fields = ('descricao', 'cliente__nome')
     date_hierarchy = 'data_vencimento'
+
+
+@admin.register(SolicitacaoAssinatura)
+class SolicitacaoAssinaturaAdmin(admin.ModelAdmin):
+    list_display = ('finalidade', 'user', 'processo', 'status', 'criado_em', 'concluido_em')
+    list_filter = ('status',)
+    search_fields = ('finalidade', 'processo__numero', 'processo__titulo')
+    readonly_fields = ('uid', 'hash_original', 'hash_p7s', 'validacao', 'certificado_subject', 'certificado_issuer')

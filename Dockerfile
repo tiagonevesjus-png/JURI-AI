@@ -12,7 +12,10 @@ WORKDIR /app
 # Dependências de sistema (libpq para o psycopg).
 ARG REQUIREMENTS_FILE=requirements-base.txt
 COPY ${REQUIREMENTS_FILE} ./requirements.txt
-RUN pip install --no-cache-dir --upgrade pip \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
 COPY . .

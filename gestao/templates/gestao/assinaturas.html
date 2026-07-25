@@ -1,0 +1,57 @@
+{% extends 'gestao/base_app.html' %}
+
+{% block conteudo %}
+<div class="flex flex-col gap-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900">Assinaturas digitais</h1>
+    <p class="mt-1 text-sm text-slate-600">Fluxo assistido pelo DesktopID e PJeOffice. O JURI-AI nunca solicita ou armazena PIN, e-Token ou chave privada.</p>
+  </div>
+
+  <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <h2 class="text-lg font-semibold">Preparar documento</h2>
+    <form method="post" enctype="multipart/form-data" class="mt-5 grid gap-4 md:grid-cols-2">
+      {% csrf_token %}
+      <div class="md:col-span-1"><label class="mb-1 block text-sm font-medium">Processo (opcional)</label>{{ form.processo }}</div>
+      <div><label class="mb-1 block text-sm font-medium">Finalidade</label>{{ form.finalidade }}{% for e in form.finalidade.errors %}<p class="text-sm text-red-600">{{ e }}</p>{% endfor %}</div>
+      <div class="md:col-span-2"><label class="mb-1 block text-sm font-medium">PDF original</label>{{ form.arquivo_original }}{% for e in form.arquivo_original.errors %}<p class="text-sm text-red-600">{{ e }}</p>{% endfor %}</div>
+      <div class="md:col-span-2"><button class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700">Preparar para assinatura</button></div>
+    </form>
+  </section>
+
+  <section class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div class="border-b border-slate-100 px-6 py-4"><h2 class="text-lg font-semibold">Fila de documentos</h2></div>
+    <div class="divide-y divide-slate-100">
+      {% for item in assinaturas %}
+      <article class="p-6">
+        <div class="flex flex-col justify-between gap-4 md:flex-row">
+          <div>
+            <p class="font-semibold text-slate-900">{{ item.finalidade }}</p>
+            <p class="mt-1 text-sm text-slate-500">{{ item.processo|default:'Sem processo vinculado' }} · {{ item.criado_em|date:'d/m/Y H:i' }}</p>
+            <p class="mt-2 text-xs text-slate-500 break-all">SHA-256 do PDF: {{ item.hash_original }}</p>
+            {% if item.status == 'ASSINADO' %}<p class="mt-2 text-sm text-emerald-700">Assinatura validada: {{ item.certificado_subject|default:'certificado identificado' }}</p>{% endif %}
+            {% if item.status == 'FALHOU' %}<p class="mt-2 text-sm text-red-700">{{ item.validacao.erro }}</p>{% endif %}
+          </div>
+          <div class="flex flex-wrap items-start gap-2">
+            <span class="rounded-full px-3 py-1 text-xs font-medium {% if item.status == 'ASSINADO' %}bg-emerald-100 text-emerald-800{% elif item.status == 'FALHOU' %}bg-red-100 text-red-800{% else %}bg-amber-100 text-amber-800{% endif %}">{{ item.get_status_display }}</span>
+            <a href="{% url 'assinatura_baixar_original' item.uid %}" class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium">Baixar PDF</a>
+          </div>
+        </div>
+        {% if item.status != 'ASSINADO' %}
+        <form method="post" enctype="multipart/form-data" action="{% url 'assinatura_enviar_p7s' item.uid %}" class="mt-4 flex flex-col gap-2 md:flex-row md:items-center">
+          {% csrf_token %}
+          <input type="file" name="arquivo_p7s" accept=".p7s,application/pkcs7-signature" required class="block w-full text-sm" />
+          <button class="shrink-0 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">Validar arquivo P7S</button>
+        </form>
+        {% endif %}
+      </article>
+      {% empty %}
+      <p class="p-6 text-sm text-slate-500">Nenhum documento preparado ainda.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <aside class="rounded-2xl border border-blue-200 bg-blue-50 p-5 text-sm text-blue-950">
+    <strong>Como usar:</strong> prepare o PDF, baixe-o, assine no PJeOffice com o DesktopID e envie o arquivo <code>.p7s</code> gerado. O sistema confere a assinatura CMS/PKCS#7, registra o certificado público e envia o alerta de conclusão.
+  </aside>
+</div>
+{% endblock %}

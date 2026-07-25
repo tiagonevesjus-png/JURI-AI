@@ -17,6 +17,7 @@
             {% url 'processos' as u_proc %}
             {% url 'publicacoes_djen' as u_pub %}
             {% url 'notificacoes' as u_not %}
+            {% url 'assinaturas' as u_ass %}
             {% url 'agenda' as u_age %}
             {% url 'prazos' as u_pra %}
             {% url 'audiencias' as u_aud %}
@@ -28,6 +29,7 @@
             <a href="{{ u_cli }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_cli %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">👥 <span>Clientes</span></a>
             <a href="{{ u_proc }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if u_proc in path %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">📁 <span>Processos</span></a>
             <a href="{{ u_pub }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_pub %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">🔔 <span>Publicações DJEN</span></a>
+            <a href="{{ u_ass }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_ass %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">✍️ <span>Assinaturas</span></a>
             <a href="{{ u_age }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_age %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">📅 <span>Agenda</span></a>
             <a href="{{ u_aud }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_aud %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">⚖️ <span>Audiências</span></a>
             <a href="{{ u_pra }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_pra %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">⏰ <span>Prazos</span></a>

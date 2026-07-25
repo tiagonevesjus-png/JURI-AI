@@ -5,6 +5,8 @@ adiciona as entidades de um escritório de advocacia: processos, audiências,
 prazos, tarefas, agenda, financeiro e controle de acesso (perfis).
 """
 
+import uuid
+
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -243,6 +245,47 @@ class PushSubscription(models.Model):
 
     def __str__(self):
         return f'Push de {self.user.username}'
+
+
+class SolicitacaoAssinatura(models.Model):
+    """Documento preparado no JURI-AI e assinado externamente pelo titular.
+
+    O sistema guarda apenas arquivos, hashes e metadados públicos do
+    certificado. PIN, e-Token e chave privada permanecem fora da aplicação.
+    """
+
+    STATUS_CHOICES = [
+        ('PENDENTE', 'Aguardando assinatura'),
+        ('EM_ASSINATURA', 'Em assinatura'),
+        ('ASSINADO', 'Assinado e validado'),
+        ('FALHOU', 'Validação falhou'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+
+    uid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             related_name='solicitacoes_assinatura')
+    processo = models.ForeignKey(Processo, on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name='solicitacoes_assinatura')
+    finalidade = models.CharField(max_length=255)
+    arquivo_original = models.FileField(upload_to='assinaturas/originais/%Y/%m/%d/')
+    arquivo_p7s = models.FileField(upload_to='assinaturas/p7s/%Y/%m/%d/', blank=True)
+    hash_original = models.CharField(max_length=64, editable=False)
+    hash_p7s = models.CharField(max_length=64, blank=True, editable=False)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default='PENDENTE')
+    certificado_subject = models.TextField(blank=True)
+    certificado_issuer = models.TextField(blank=True)
+    validacao = models.JSONField(default=dict, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    concluido_em = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Solicitação de assinatura'
+        verbose_name_plural = 'Solicitações de assinatura'
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f'{self.finalidade} ({self.get_status_display()})'
 
 
 class Audiencia(models.Model):

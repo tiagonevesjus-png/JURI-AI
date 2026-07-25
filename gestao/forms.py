@@ -9,7 +9,7 @@ from django import forms
 from usuarios.models import Cliente
 from .models import (
     Processo, MovimentacaoProcesso, Audiencia, Prazo, Tarefa,
-    Compromisso, LancamentoFinanceiro,
+    Compromisso, LancamentoFinanceiro, SolicitacaoAssinatura,
 )
 
 INPUT_CLASS = (
@@ -115,3 +115,18 @@ class LancamentoForm(TailwindModelForm):
             'data_vencimento': forms.DateInput(attrs={'type': 'date'}),
             'data_pagamento': forms.DateInput(attrs={'type': 'date'}),
         }
+
+
+class SolicitacaoAssinaturaForm(TailwindModelForm):
+    class Meta:
+        model = SolicitacaoAssinatura
+        fields = ['processo', 'finalidade', 'arquivo_original']
+
+    def clean_arquivo_original(self):
+        arquivo = self.cleaned_data['arquivo_original']
+        if not arquivo.name.lower().endswith('.pdf'):
+            raise forms.ValidationError('Envie somente documentos PDF.')
+        limite = 25 * 1024 * 1024
+        if arquivo.size > limite:
+            raise forms.ValidationError('O PDF não pode ultrapassar 25 MB.')
+        return arquivo

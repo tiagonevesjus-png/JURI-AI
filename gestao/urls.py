@@ -10,6 +10,9 @@ urlpatterns = [
     path('notificacoes/push/config/', views.push_config, name='push_config'),
     path('notificacoes/push/subscribe/', views.push_subscribe, name='push_subscribe'),
     path('notificacoes/push/unsubscribe/', views.push_unsubscribe, name='push_unsubscribe'),
+    path('assinaturas/', views.assinaturas, name='assinaturas'),
+    path('assinaturas/<uuid:uid>/original/', views.assinatura_baixar_original, name='assinatura_baixar_original'),
+    path('assinaturas/<uuid:uid>/p7s/', views.assinatura_enviar_p7s, name='assinatura_enviar_p7s'),
 
     # Processos
     path('processos/', views.processos, name='processos'),
