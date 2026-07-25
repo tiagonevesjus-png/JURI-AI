@@ -79,6 +79,24 @@ services:
       - ./data:/app/data
     command: ["python", "docker/google_scheduler.py"]
 
+  drive-clientes-monitor:
+    build:
+      context: .
+      args:
+        REQUIREMENTS_FILE: requirements-local.txt
+    env_file: .env.local
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: db
+      DEBUG: "False"
+      SKIP_STARTUP_TASKS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
+    command: ["python", "docker/drive_scheduler.py"]
+
   datajud-monitor:
     build:
       context: .

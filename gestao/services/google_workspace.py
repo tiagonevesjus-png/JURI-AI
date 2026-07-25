@@ -1,4 +1,4 @@
-"""Integração local, com OAuth PKCE, para leitura de Gmail e Google Agenda."""
+"""Integração local OAuth PKCE para Gmail, Agenda e pasta Clientes do Drive."""
 
 import base64
 import os
@@ -17,7 +17,7 @@ import requests
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from gestao.models import ItemGoogle
+from gestao.models import ArquivoGoogleDrive, ItemGoogle
 from gestao.services.notificacoes import criar as criar_notificacao
 
 
@@ -25,11 +25,15 @@ AUTHORIZATION_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 TOKEN_URL = 'https://oauth2.googleapis.com/token'
 GMAIL_URL = 'https://gmail.googleapis.com/gmail/v1/users/me'
 CALENDAR_URL = 'https://www.googleapis.com/calendar/v3'
+DRIVE_URL = 'https://www.googleapis.com/drive/v3'
 SCOPES = [
     'https://www.googleapis.com/auth/gmail.readonly',
     'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/calendar.readonly',
+    'https://www.googleapis.com/auth/drive.readonly',
 ]
+
+DRIVE_FOLDER_MIME = 'application/vnd.google-apps.folder'
 
 
 class GoogleWorkspaceError(Exception):
@@ -220,7 +224,13 @@ def _get(url, params=None):
         _salvar_token(token)
         resposta = requests.get(url, params=params, headers={'Authorization': f'Bearer {_access_token()}'}, timeout=(5, 25))
     if not resposta.ok:
-        raise GoogleWorkspaceError(f'Consulta Google falhou: HTTP {resposta.status_code}.')
+        detalhe = ''
+        try:
+            detalhe = resposta.json().get('error', {}).get('message', '')
+        except (ValueError, AttributeError):
+            pass
+        sufixo = f' ({detalhe})' if detalhe else ''
+        raise GoogleWorkspaceError(f'Consulta Google falhou: HTTP {resposta.status_code}{sufixo}')
     return resposta.json()
 
 
@@ -323,3 +333,109 @@ def sincronizar(user):
             criar_notificacao(user, 'AGENDA', f'Novo evento: {evento.get("summary") or "sem título"}',
                               evento.get('location', ''), link=evento.get('htmlLink', ''), dados={'id': evento['id']})
     return novas_gmail, novas_agenda, len(mensagens), len(eventos)
+
+
+def _drive_listar(query, campos, page_token=None):
+    """Lista uma página do Drive sem baixar conteúdo de arquivo."""
+    params = {
+        'q': query, 'spaces': 'drive', 'pageSize': 100,
+        'fields': f'nextPageToken,files({campos})', 'orderBy': 'name_natural',
+        'supportsAllDrives': 'true', 'includeItemsFromAllDrives': 'true',
+    }
+    if page_token:
+        params['pageToken'] = page_token
+    return _get(f'{DRIVE_URL}/files', params)
+
+
+def _pasta_clientes():
+    """Usa a pasta configurada ou resolve a única pasta raiz chamada Clientes."""
+    configurada = os.environ.get('GOOGLE_DRIVE_CLIENTES_FOLDER_ID', '').strip()
+    if configurada:
+        dados = _get(f'{DRIVE_URL}/files/{configurada}', {
+            'fields': 'id,name,mimeType,webViewLink', 'supportsAllDrives': 'true',
+        })
+        if dados.get('mimeType') != DRIVE_FOLDER_MIME:
+            raise GoogleWorkspaceError('GOOGLE_DRIVE_CLIENTES_FOLDER_ID não corresponde a uma pasta do Google Drive.')
+        return dados
+    resposta = _drive_listar(
+        "name = 'Clientes' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+        'id,name,mimeType,webViewLink',
+    )
+    pastas = resposta.get('files', [])
+    if len(pastas) != 1:
+        raise GoogleWorkspaceError(
+            'Não foi possível identificar uma única pasta raiz chamada Clientes. '
+            'Defina GOOGLE_DRIVE_CLIENTES_FOLDER_ID no .env.local para restringir a integração.'
+        )
+    return pastas[0]
+
+
+def _data_drive(valor):
+    return parse_datetime(valor) if valor else None
+
+
+def _listar_arquivos_clientes():
+    """Varre a árvore Clientes até a profundidade e o limite locais definidos."""
+    raiz = _pasta_clientes()
+    profundidade_maxima = max(1, min(8, int(os.environ.get('GOOGLE_DRIVE_MAX_DEPTH', '3'))))
+    limite = max(1, min(5000, int(os.environ.get('GOOGLE_DRIVE_MAX_FILES', '1000'))))
+    campos = 'id,name,mimeType,modifiedTime,createdTime,size,md5Checksum,webViewLink,parents,trashed'
+    fila = [(raiz['id'], raiz.get('name', 'Clientes'), 0)]
+    arquivos, visitadas = [], {raiz['id']}
+    while fila and len(arquivos) < limite:
+        pasta_id, caminho, profundidade = fila.pop(0)
+        pagina = None
+        while len(arquivos) < limite:
+            resposta = _drive_listar(f"'{pasta_id}' in parents and trashed = false", campos, pagina)
+            for item in resposta.get('files', []):
+                if item.get('mimeType') == DRIVE_FOLDER_MIME:
+                    if profundidade < profundidade_maxima and item['id'] not in visitadas:
+                        visitadas.add(item['id'])
+                        fila.append((item['id'], f"{caminho}/{item.get('name', '')}", profundidade + 1))
+                    continue
+                item['_caminho'] = caminho
+                arquivos.append(item)
+                if len(arquivos) >= limite:
+                    break
+            pagina = resposta.get('nextPageToken')
+            if not pagina or len(arquivos) >= limite:
+                break
+    return raiz, arquivos, bool(fila)
+
+
+def sincronizar_drive_clientes(user):
+    """Cataloga a pasta Clientes em modo somente leitura, sem alterar o Drive."""
+    if os.environ.get('GOOGLE_DRIVE_SYNC_ENABLED', 'false').lower() != 'true':
+        raise GoogleWorkspaceError('GOOGLE_DRIVE_SYNC_ENABLED está desativado.')
+    raiz, arquivos, incompleta = _listar_arquivos_clientes()
+    novos = alterados = 0
+    for item in arquivos:
+        defaults = {
+            'nome': (item.get('name') or '(sem nome)')[:500],
+            'mime_type': item.get('mimeType', ''),
+            'caminho': item.get('_caminho', '')[:2000],
+            'link': item.get('webViewLink', ''),
+            'tamanho_bytes': int(item['size']) if item.get('size', '').isdigit() else None,
+            'checksum_md5': item.get('md5Checksum', ''),
+            'modificado_em': _data_drive(item.get('modifiedTime')),
+            'dados': {'created_time': item.get('createdTime', ''), 'parents': item.get('parents', [])},
+        }
+        existente = ArquivoGoogleDrive.objects.filter(user=user, identificador_externo=item['id']).first()
+        if existente is None:
+            ArquivoGoogleDrive.objects.create(user=user, identificador_externo=item['id'], **defaults)
+            novos += 1
+        else:
+            mudou = any(getattr(existente, campo) != valor for campo, valor in defaults.items())
+            if mudou:
+                for campo, valor in defaults.items():
+                    setattr(existente, campo, valor)
+                existente.save(update_fields=[*defaults.keys(), 'atualizado_em'])
+                alterados += 1
+    if novos or alterados:
+        texto = f'{novos} novo(s) e {alterados} alterado(s) em {raiz.get("name", "Clientes")}.'
+        if incompleta:
+            texto += ' A varredura atingiu o limite configurado.'
+        criar_notificacao(user, 'DRIVE', 'Google Drive: arquivos de Clientes atualizados', texto,
+                           link=raiz.get('webViewLink', ''),
+                           dados={'novos': novos, 'alterados': alterados, 'total_lido': len(arquivos), 'raiz_id': raiz['id']})
+    return novos, alterados, len(arquivos), raiz

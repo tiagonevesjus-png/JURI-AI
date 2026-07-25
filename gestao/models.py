@@ -196,11 +196,41 @@ class ItemGoogle(models.Model):
         return f'{self.get_fonte_display()}: {self.titulo}'
 
 
+class ArquivoGoogleDrive(models.Model):
+    """Catálogo local, somente de metadados, da pasta Clientes do Google Drive."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             related_name='arquivos_google_drive')
+    identificador_externo = models.CharField(max_length=255)
+    nome = models.CharField(max_length=500)
+    mime_type = models.CharField(max_length=255, blank=True)
+    caminho = models.CharField(max_length=2000, blank=True)
+    link = models.URLField(blank=True)
+    tamanho_bytes = models.BigIntegerField(null=True, blank=True)
+    checksum_md5 = models.CharField(max_length=32, blank=True)
+    modificado_em = models.DateTimeField(null=True, blank=True)
+    dados = models.JSONField(default=dict, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Arquivo Google Drive'
+        verbose_name_plural = 'Arquivos Google Drive'
+        ordering = ['caminho', 'nome']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'identificador_externo'],
+                                    name='arquivo_drive_usuario_identificador_unico'),
+        ]
+
+    def __str__(self):
+        return self.caminho or self.nome
+
+
 class Notificacao(models.Model):
     """Alerta interno com rastreio dos canais externos de entrega."""
 
     TIPO_CHOICES = [
-        ('DJEN', 'Publicação DJEN'), ('GMAIL', 'Gmail'), ('AGENDA', 'Google Agenda'),
+        ('DJEN', 'Publicação DJEN'), ('GMAIL', 'Gmail'), ('AGENDA', 'Google Agenda'), ('DRIVE', 'Google Drive'),
         ('PRAZO', 'Prazo'), ('AUDIENCIA', 'Audiência'), ('SISTEMA', 'Sistema'),
     ]
     PRIORIDADE_CHOICES = [('BAIXA', 'Baixa'), ('NORMAL', 'Normal'), ('ALTA', 'Alta'), ('URGENTE', 'Urgente')]
