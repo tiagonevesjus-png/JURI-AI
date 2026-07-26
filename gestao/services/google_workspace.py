@@ -382,6 +382,22 @@ def _listar_arquivos_clientes():
     campos = 'id,name,mimeType,modifiedTime,createdTime,size,md5Checksum,webViewLink,parents,trashed'
     fila = [(raiz['id'], raiz.get('name', 'Clientes'), 0)]
     arquivos, visitadas = [], {raiz['id']}
+    prioridades = [nome.strip() for nome in os.environ.get(
+        'GOOGLE_DRIVE_PRIORITY_FOLDER_NAMES', ''
+    ).split(',') if nome.strip()]
+    # Pastas processuais prioritárias são varridas antes da ordem alfabética
+    # geral. Isso impede que arquivos relevantes fiquem fora do limite diário
+    # em uma pasta Clientes muito grande.
+    for nome in reversed(prioridades):
+        candidatas = _drive_listar(
+            f"name = '{nome.replace(chr(39), chr(92) + chr(39))}' and "
+            "mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+            'id,name,parents',
+        ).get('files', [])
+        for pasta in reversed(candidatas):
+            if raiz['id'] in pasta.get('parents', []) and pasta['id'] not in visitadas:
+                visitadas.add(pasta['id'])
+                fila.insert(0, (pasta['id'], f"{raiz.get('name', 'Clientes')}/{pasta['name']}", 1))
     while fila and len(arquivos) < limite:
         pasta_id, caminho, profundidade = fila.pop(0)
         pagina = None
