@@ -238,8 +238,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = _env_bool('SECURE_SSL_REDIRECT', True)
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+    # Em produção estes cookies devem permanecer restritos a HTTPS.  A instalação
+    # local pode ser acessada pela rede Wi-Fi em HTTP, portanto o compose local
+    # define explicitamente estas variáveis como False.
+    SESSION_COOKIE_SECURE = _env_bool('SESSION_COOKIE_SECURE', True)
+    CSRF_COOKIE_SECURE = _env_bool('CSRF_COOKIE_SECURE', True)
     SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '31536000'))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
@@ -251,6 +254,22 @@ from django.contrib.messages import constants
 MESSAGE_TAGS = {
     constants.SUCCESS: 'bg-green-50 text-green-700',
     constants.ERROR: 'bg-red-50 text-red-700'
+}
+
+# E-mail de alertas. Em desenvolvimento, permanece no console até SMTP ser habilitado.
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = _env_bool('EMAIL_USE_TLS', True)
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'juriai@localhost')
+
+# Push Web: as chaves VAPID ficam exclusivamente no ambiente local/de producao.
+WEBPUSH_VAPID_PUBLIC_KEY = os.environ.get('WEBPUSH_VAPID_PUBLIC_KEY', '')
+WEBPUSH_VAPID_PRIVATE_KEY = os.environ.get('WEBPUSH_VAPID_PRIVATE_KEY', '')
+WEBPUSH_VAPID_CLAIMS = {
+    'sub': os.environ.get('WEBPUSH_VAPID_SUBJECT', 'mailto:suporte@localhost'),
 }
 
 # Autenticação / redirecionamentos

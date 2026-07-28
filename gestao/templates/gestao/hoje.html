@@ -1,0 +1,42 @@
+{% extends 'gestao/base_app.html' %}
+{% block conteudo %}
+<div class="space-y-8">
+  <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+    <div>
+      <h1 class="text-3xl font-semibold tracking-tight">Hoje</h1>
+      <p class="text-slate-500 mt-1">{{ hoje|date:"d/m/Y" }} · visão unificada do dia.</p>
+    </div>
+    <a href="{% url 'notificacoes' %}" class="text-sm rounded-xl bg-slate-900 text-white px-4 py-2">{{ alertas_nao_lidos }} alerta(s) não lido(s)</a>
+  </div>
+
+  <section class="bg-white rounded-2xl shadow-sm border border-slate-100">
+    <div class="px-6 py-4 border-b border-slate-100"><h2 class="font-semibold">Triagem jurídica</h2><p class="text-xs text-slate-400 mt-1">Sugestões da IA — confira a fonte oficial antes de praticar qualquer ato.</p></div>
+    <div class="divide-y divide-slate-100">
+      {% for t in triagens %}
+      <article class="p-5">
+        <div class="flex flex-wrap items-center gap-2 mb-2">
+          <span class="text-xs rounded-full bg-slate-100 text-slate-600 px-2 py-1">{{ t.get_fonte_display }}</span>
+          <span class="text-xs rounded-full {% if t.prioridade == 'URGENTE' %}bg-red-100 text-red-700{% elif t.prioridade == 'ALTA' %}bg-amber-100 text-amber-800{% else %}bg-blue-50 text-blue-700{% endif %} px-2 py-1">{{ t.get_categoria_display }} · {{ t.get_prioridade_display }}</span>
+          {% if t.processo %}<a href="{% url 'processo_detalhe' t.processo.id %}" class="text-xs text-slate-500 hover:underline">{{ t.processo.numero|default:t.processo.titulo }}</a>{% endif %}
+        </div>
+        <h3 class="font-medium">{{ t.titulo_origem }}</h3>
+        <p class="text-sm text-slate-600 mt-2">{{ t.resumo }}</p>
+        <p class="text-sm text-slate-800 mt-2"><strong>Próxima conferência:</strong> {{ t.providencia_sugerida }}</p>
+      </article>
+      {% empty %}<p class="p-6 text-sm text-slate-400">Nenhum evento novo triado hoje.</p>{% endfor %}
+    </div>
+  </section>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <section class="bg-white rounded-2xl shadow-sm p-5"><h2 class="font-semibold mb-3">Prazos próximos</h2>{% for p in prazos %}<p class="text-sm py-2 border-b border-slate-100"><a class="hover:underline" href="{% url 'prazos' %}">{{ p.titulo }}</a><br><span class="text-slate-400">{{ p.data_fatal|date:"d/m/Y" }} · revisão humana</span></p>{% empty %}<p class="text-sm text-slate-400">Nenhum prazo pendente.</p>{% endfor %}</section>
+    <section class="bg-white rounded-2xl shadow-sm p-5"><h2 class="font-semibold mb-3">Audiências</h2>{% for a in audiencias %}<p class="text-sm py-2 border-b border-slate-100">{{ a.get_tipo_display }}<br><span class="text-slate-400">{{ a.data_hora|date:"d/m H:i" }}</span></p>{% empty %}<p class="text-sm text-slate-400">Nenhuma audiência nos próximos 7 dias.</p>{% endfor %}</section>
+    <section class="bg-white rounded-2xl shadow-sm p-5"><h2 class="font-semibold mb-3">Agenda Google hoje</h2>{% for e in agenda_google %}<p class="text-sm py-2 border-b border-slate-100"><a href="{{ e.link }}" target="_blank" rel="noopener" class="hover:underline">{{ e.titulo }}</a></p>{% empty %}<p class="text-sm text-slate-400">Nenhum evento da Agenda hoje.</p>{% endfor %}</section>
+  </div>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <section class="bg-white rounded-2xl shadow-sm p-5"><h2 class="font-semibold mb-3">Novas publicações</h2>{% for p in publicacoes_hoje %}<p class="text-sm py-2 border-b border-slate-100"><a href="{{ p.link }}" class="hover:underline" target="_blank" rel="noopener">{{ p.tribunal }} — {{ p.tipo_comunicacao|default:"Publicação" }}</a><br><span class="text-slate-400">{{ p.numero_processo|default:"Processo não identificado" }}</span></p>{% empty %}<p class="text-sm text-slate-400">Nenhuma publicação nova hoje.</p>{% endfor %}</section>
+    <section class="bg-white rounded-2xl shadow-sm p-5"><h2 class="font-semibold mb-3">Movimentações relevantes</h2>{% for m in movimentacoes_relevantes %}<p class="text-sm py-2 border-b border-slate-100">{{ m.get_categoria_display }} — {{ m.resumo|truncatechars:180 }}{% if m.processo %}<br><span class="text-slate-400">{{ m.processo.numero }}</span>{% endif %}</p>{% empty %}<p class="text-sm text-slate-400">Nenhuma movimentação relevante hoje.</p>{% endfor %}</section>
+    <section class="bg-white rounded-2xl shadow-sm p-5"><h2 class="font-semibold mb-3">E-mails importantes</h2>{% for e in emails_importantes %}<p class="text-sm py-2 border-b border-slate-100"><a href="{{ e.link }}" class="hover:underline" target="_blank" rel="noopener">{{ e.titulo }}</a><br><span class="text-slate-400">{{ e.resumo|truncatechars:120 }}</span></p>{% empty %}<p class="text-sm text-slate-400">Nenhum e-mail novo hoje.</p>{% endfor %}</section>
+    <section class="bg-white rounded-2xl shadow-sm p-5"><h2 class="font-semibold mb-3">Tarefas pendentes</h2>{% for t in tarefas_pendentes %}<p class="text-sm py-2 border-b border-slate-100">{{ t.titulo }}<br><span class="text-slate-400">{{ t.get_status_display }}</span></p>{% empty %}<p class="text-sm text-slate-400">Nenhuma tarefa pendente.</p>{% endfor %}</section>
+  </div>
+</div>
+{% endblock %}

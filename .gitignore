@@ -61,7 +61,18 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 media/
+staticfiles/
 lancedb/
+backups/
+# Artefatos temporários gerados por testes de assinatura e um nome reservado
+# criado por alguns comandos no Windows.
+output/
+NUL
+diagnosticos/
+data/google-oauth-token.json
+# Estado local, códigos OAuth e logs de integrações; manter apenas o marcador da pasta.
+data/*
+!data/.gitkeep
 
 # Flask stuff:
 instance/
@@ -138,6 +149,7 @@ celerybeat.pid
 
 # Environments
 .env
+.env.local
 .envrc
 .venv
 env/

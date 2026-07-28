@@ -1,0 +1,27 @@
+{% extends 'gestao/base_app.html' %}
+
+{% block titulo %}Base de conhecimento | JURI-AI{% endblock %}
+
+{% block conteudo %}
+<div class="mb-8">
+  <p class="text-sm font-medium text-amber-700">Procedimentos internos</p>
+  <h1 class="mt-1 text-3xl font-bold tracking-tight text-slate-900">Base de conhecimento</h1>
+  <p class="mt-2 max-w-3xl text-slate-600">Guias originais do JURI-AI para executar a rotina com conferência humana, fontes rastreáveis e segurança.</p>
+</div>
+<div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+  {% for artigo in artigos %}
+  <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">{{ artigo.tema }}</p>
+    <h2 class="mt-2 text-lg font-semibold text-slate-900">{{ artigo.titulo }}</h2>
+    <p class="mt-2 text-sm leading-6 text-slate-600">{{ artigo.resumo }}</p>
+    <ol class="mt-5 space-y-2 text-sm text-slate-700">
+      {% for passo in artigo.passos %}<li class="flex gap-2"><span class="font-semibold text-amber-700">{{ forloop.counter }}.</span><span>{{ passo }}</span></li>{% endfor %}
+    </ol>
+  </article>
+  {% endfor %}
+</div>
+<section class="mt-8 rounded-2xl border border-sky-200 bg-sky-50 p-6 text-sm text-sky-950">
+  <h2 class="font-semibold">Limites de automação</h2>
+  <p class="mt-2">O JURI-AI não protocola, assina, toma ciência ou confirma prazo fatal de forma automática. Essas ações exigem a sua revisão e confirmação.</p>
+</section>
+{% endblock %}

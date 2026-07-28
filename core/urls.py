@@ -18,8 +18,12 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
+from core.views import healthz
+from gestao.views import google_oauth_callback
 
 urlpatterns = [
+    path('healthz/', healthz, name='healthz'),
+    path('google/oauth/callback', google_oauth_callback, name='google_oauth_callback'),
     path('admin/', admin.site.urls),
     path('usuarios/', include('usuarios.urls')),
     path('ia/', include('ia.urls')),

@@ -9,6 +9,9 @@
         <button onclick="abrirModal('modal-processo')" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:opacity-90">
             + Novo processo
         </button>
+        <a href="{% url 'processos_coletados' %}" class="bg-amber-50 text-amber-800 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-amber-100">
+            Coletas para conferência{% if coletas_pendentes %} ({{ coletas_pendentes }}){% endif %}
+        </a>
     </div>
 
     <!-- Filtros -->

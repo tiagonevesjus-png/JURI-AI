@@ -1,0 +1,24 @@
+{% extends 'gestao/base_app.html' %}
+{% block conteudo %}
+<div class="space-y-6">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tight">Coletas para conferência</h1>
+    <p class="text-slate-500 mt-1">Processos lidos em fontes externas. Itens sem cliente identificado não entram automaticamente na carteira.</p>
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="text-slate-400 border-b border-slate-100"><tr>
+        <th class="text-left font-medium px-6 py-3">Fonte</th><th class="text-left font-medium px-6 py-3">Processo</th><th class="text-left font-medium px-6 py-3">Tribunal</th><th class="text-left font-medium px-6 py-3">Vínculo</th><th class="text-left font-medium px-6 py-3">Situação</th><th class="text-right font-medium px-6 py-3">Ação</th>
+      </tr></thead>
+      <tbody>{% for item in itens %}<tr class="border-b border-slate-50">
+        <td class="px-6 py-4">{{ item.get_fonte_display }}</td>
+        <td class="px-6 py-4 font-medium">{{ item.numero }}{% if item.titulo %}<p class="text-xs text-slate-400">{{ item.titulo|truncatechars:90 }}</p>{% endif %}</td>
+        <td class="px-6 py-4">{{ item.tribunal|default:'—' }}</td>
+        <td class="px-6 py-4">{% if item.processo %}<a class="underline" href="{% url 'processo_detalhe' item.processo.id %}">{{ item.processo.cliente.nome }}</a>{% else %}A conferir{% endif %}</td>
+        <td class="px-6 py-4">{{ item.get_status_display }}</td>
+        <td class="px-6 py-4 text-right">{% if not item.processo and item.status == 'PENDENTE' %}<form method="post" action="{% url 'processo_coletado_importar' item.id %}" class="flex gap-2 justify-end">{% csrf_token %}<select name="cliente_id" required class="border border-slate-200 rounded-lg px-2 py-1 text-xs"><option value="">Selecionar cliente</option>{% for cliente in clientes %}<option value="{{ cliente.id }}">{{ cliente.nome }}</option>{% endfor %}</select><button class="bg-slate-900 text-white rounded-lg px-3 py-1 text-xs">Importar</button></form>{% else %}—{% endif %}</td>
+      </tr>{% empty %}<tr><td colspan="6" class="px-6 py-10 text-center text-slate-400">Nenhuma coleta pendente.</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

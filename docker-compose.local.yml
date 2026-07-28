@@ -1,0 +1,197 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-juriai}
+      POSTGRES_USER: ${POSTGRES_USER:-juriai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no .env.local}
+    volumes:
+      - juriai_local_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-juriai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      args:
+        REQUIREMENTS_FILE: requirements-local.txt
+    env_file: .env.local
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: db
+      DEBUG: "False"
+      SECURE_SSL_REDIRECT: "False"
+      SESSION_COOKIE_SECURE: "False"
+      CSRF_COOKIE_SECURE: "False"
+      ALLOWED_HOSTS: localhost,127.0.0.1,10.221.180.94
+      CSRF_TRUSTED_ORIGINS: http://localhost:8000,http://127.0.0.1:8000,http://10.221.180.94:8000
+      PRIMARY_DOMAIN: ""
+      Q_SYNC: "True"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+      - "8765:8000"
+    volumes:
+      - .:/app
+      - juriai_local_media:/app/media
+      - juriai_local_static:/app/staticfiles
+      - ./data:/app/data
+      - ./backups:/app/backups:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz/', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  djen-monitor:
+    build:
+      context: .
+      args:
+        REQUIREMENTS_FILE: requirements-local.txt
+    env_file: .env.local
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: db
+      DEBUG: "False"
+      SKIP_STARTUP_TASKS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: ["python", "docker/djen_scheduler.py"]
+
+  google-monitor:
+    build:
+      context: .
+      args:
+        REQUIREMENTS_FILE: requirements-local.txt
+    env_file: .env.local
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: db
+      DEBUG: "False"
+      SKIP_STARTUP_TASKS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    command: ["python", "docker/google_scheduler.py"]
+
+  drive-clientes-monitor:
+    build:
+      context: .
+      args:
+        REQUIREMENTS_FILE: requirements-local.txt
+    env_file: .env.local
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: db
+      DEBUG: "False"
+      SKIP_STARTUP_TASKS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    command: ["python", "docker/drive_scheduler.py"]
+
+  datajud-monitor:
+    build:
+      context: .
+      args:
+        REQUIREMENTS_FILE: requirements-local.txt
+    env_file: .env.local
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: db
+      DEBUG: "False"
+      SKIP_STARTUP_TASKS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: ["python", "docker/datajud_scheduler.py"]
+
+  triagem-monitor:
+    build:
+      context: .
+      args:
+        REQUIREMENTS_FILE: requirements-local.txt
+    env_file: .env.local
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: db
+      DEBUG: "False"
+      SKIP_STARTUP_TASKS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: ["python", "docker/triagem_scheduler.py"]
+
+  prazos-monitor:
+    build:
+      context: .
+      args:
+        REQUIREMENTS_FILE: requirements-local.txt
+    env_file: .env.local
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: db
+      DEBUG: "False"
+      SKIP_STARTUP_TASKS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: ["python", "docker/prazos_scheduler.py"]
+
+  backup:
+    image: postgres:16-alpine
+    env_file: .env.local
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backups:/backups
+      - ./docker/backup_scheduler.sh:/usr/local/bin/backup_scheduler.sh:ro
+    command: ["/bin/sh", "/usr/local/bin/backup_scheduler.sh"]
+
+  backup-report-monitor:
+    build:
+      context: .
+      args:
+        REQUIREMENTS_FILE: requirements-local.txt
+    env_file: .env.local
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: db
+      DEBUG: "False"
+      SKIP_STARTUP_TASKS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - ./backups:/app/backups:ro
+    command: ["python", "docker/backup_report_scheduler.py"]
+
+volumes:
+  juriai_local_postgres:
+  juriai_local_media:
+  juriai_local_static:

@@ -1,5 +1,50 @@
 {% extends 'gestao/base_app.html' %}
 {% block conteudo %}
+<section class="bg-white rounded-2xl shadow-sm border border-slate-100 mb-6">
+    <div class="px-6 py-4 border-b border-slate-100">
+        <h2 class="font-semibold">Exportar carteira processual</h2>
+        <p class="text-sm text-slate-500 mt-1">Aplique filtros e baixe apenas os processos da sua carteira em Excel ou PDF.</p>
+    </div>
+    <form method="get" class="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div><label class="block text-sm font-medium mb-1" for="{{ export_form.cliente.id_for_label }}">{{ export_form.cliente.label }}</label>{{ export_form.cliente }}</div>
+        <div><label class="block text-sm font-medium mb-1" for="{{ export_form.area.id_for_label }}">{{ export_form.area.label }}</label>{{ export_form.area }}</div>
+        <div><label class="block text-sm font-medium mb-1" for="{{ export_form.status.id_for_label }}">{{ export_form.status.label }}</label>{{ export_form.status }}</div>
+        <div><label class="block text-sm font-medium mb-1" for="{{ export_form.tribunal.id_for_label }}">{{ export_form.tribunal.label }}</label>{{ export_form.tribunal }}</div>
+        <div><label class="block text-sm font-medium mb-1" for="{{ export_form.data_inicial.id_for_label }}">{{ export_form.data_inicial.label }}</label>{{ export_form.data_inicial }}</div>
+        <div><label class="block text-sm font-medium mb-1" for="{{ export_form.data_final.id_for_label }}">{{ export_form.data_final.label }}</label>{{ export_form.data_final }}</div>
+        <div class="md:col-span-2 xl:col-span-3 flex flex-wrap gap-3 pt-2">
+            <button type="submit" formaction="{% url 'relatorio_processos_download' 'xlsx' %}" class="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">Baixar Excel (.xlsx)</button>
+            <button type="submit" formaction="{% url 'relatorio_processos_download' 'pdf' %}" class="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-medium hover:bg-slate-800">Baixar PDF</button>
+        </div>
+    </form>
+</section>
+<section class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+    <form method="get" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
+        <div><h2 class="font-semibold">Prazos</h2><p class="text-sm text-slate-500">Por período, cliente, prioridade e status.</p></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">{{ prazos_export_form.cliente }}{{ prazos_export_form.prioridade }}{{ prazos_export_form.status }}{{ prazos_export_form.data_inicial }}{{ prazos_export_form.data_final }}</div>
+        <div class="flex gap-2"><button formaction="{% url 'relatorio_download' 'prazos' 'xlsx' %}" class="px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm">Excel</button><button formaction="{% url 'relatorio_download' 'prazos' 'pdf' %}" class="px-3 py-2 rounded-xl bg-slate-900 text-white text-sm">PDF</button></div>
+    </form>
+    <form method="get" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
+        <div><h2 class="font-semibold">Audiências</h2><p class="text-sm text-slate-500">Agenda processual por período, cliente, tipo e status.</p></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">{{ audiencias_export_form.cliente }}{{ audiencias_export_form.tipo }}{{ audiencias_export_form.status }}{{ audiencias_export_form.data_inicial }}{{ audiencias_export_form.data_final }}</div>
+        <div class="flex gap-2"><button formaction="{% url 'relatorio_download' 'audiencias' 'xlsx' %}" class="px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm">Excel</button><button formaction="{% url 'relatorio_download' 'audiencias' 'pdf' %}" class="px-3 py-2 rounded-xl bg-slate-900 text-white text-sm">PDF</button></div>
+    </form>
+    <form method="get" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
+        <div><h2 class="font-semibold">Movimentações relevantes</h2><p class="text-sm text-slate-500">Somente triagens de prioridade alta ou urgente.</p></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">{{ movimentacoes_export_form.cliente }}{{ movimentacoes_export_form.categoria }}{{ movimentacoes_export_form.fonte }}{{ movimentacoes_export_form.data_inicial }}{{ movimentacoes_export_form.data_final }}</div>
+        <div class="flex gap-2"><button formaction="{% url 'relatorio_download' 'movimentacoes' 'xlsx' %}" class="px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm">Excel</button><button formaction="{% url 'relatorio_download' 'movimentacoes' 'pdf' %}" class="px-3 py-2 rounded-xl bg-slate-900 text-white text-sm">PDF</button></div>
+    </form>
+    <form method="get" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
+        <div><h2 class="font-semibold">Financeiro por cliente</h2><p class="text-sm text-slate-500">Receitas e despesas por vencimento.</p></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">{{ financeiro_export_form.cliente }}{{ financeiro_export_form.tipo }}{{ financeiro_export_form.status }}{{ financeiro_export_form.data_inicial }}{{ financeiro_export_form.data_final }}</div>
+        <div class="flex gap-2"><button formaction="{% url 'relatorio_download' 'financeiro' 'xlsx' %}" class="px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm">Excel</button><button formaction="{% url 'relatorio_download' 'financeiro' 'pdf' %}" class="px-3 py-2 rounded-xl bg-slate-900 text-white text-sm">PDF</button></div>
+    </form>
+    <form method="get" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4 xl:col-span-2">
+        <div><h2 class="font-semibold">Resumo diário consolidado</h2><p class="text-sm text-slate-500">DJEN, movimentações relevantes, prazos próximos, audiências, Gmail, Agenda e tarefas pendentes.</p></div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">{{ resumo_diario_export_form.cliente }}{{ resumo_diario_export_form.data }}</div>
+        <div class="flex gap-2"><button formaction="{% url 'relatorio_download' 'resumo-diario' 'xlsx' %}" class="px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm">Excel</button><button formaction="{% url 'relatorio_download' 'resumo-diario' 'pdf' %}" class="px-3 py-2 rounded-xl bg-slate-900 text-white text-sm">PDF</button></div>
+    </form>
+</section>
 <div class="space-y-6">
     <div>
         <h1 class="text-3xl font-semibold tracking-tight">Relatórios e indicadores</h1>

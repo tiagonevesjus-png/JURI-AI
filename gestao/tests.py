@@ -1,13 +1,19 @@
 """Testes do app de gestão jurídica: perfis/acesso, multi-tenancy e fluxos."""
 
+import os
 from datetime import date, timedelta
+from io import BytesIO
+from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
+from openpyxl import load_workbook
 
 from usuarios.models import Cliente
-from .models import Perfil, Processo, Prazo, Tarefa, LancamentoFinanceiro
+from .models import Audiencia, Perfil, Processo, Prazo, Tarefa, LancamentoFinanceiro, PublicacaoDJEN, TriagemJuridica
+from .services.djen import sincronizar as sincronizar_djen
 
 
 class PerfilSignalTest(TestCase):
@@ -58,6 +64,47 @@ class ProcessoFluxoTest(TestCase):
         })
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(proc.movimentacoes.count(), 1)
+
+    def test_publicacoes_exigem_login_e_respeitam_usuario(self):
+        outro = User.objects.create_user('outro', password='x12345678')
+        PublicacaoDJEN.objects.create(user=outro, identificador_externo='1', texto='Publicação de outro usuário')
+        resp = self.client.get(reverse('publicacoes_djen'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, 'Publicação de outro usuário')
+
+
+class DJENServiceTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('advdjen', password='x12345678')
+        self.cliente = Cliente.objects.create(nome='Cliente DJEN', email='djen@x.com', user=self.user)
+        self.processo = Processo.objects.create(
+            titulo='Processo monitorado', cliente=self.cliente, user=self.user,
+            numero='0016068-39.2026.5.16.0003',
+        )
+
+    @patch.dict(os.environ, {'DJEN_OAB_NUMERO': '10042', 'DJEN_OAB_UF': 'MA'}, clear=False)
+    @patch('gestao.services.djen._cliente_http')
+    def test_sincroniza_e_deduplica_publicacoes(self, cliente_http):
+        resposta = Mock()
+        resposta.status_code = 200
+        resposta.raise_for_status.return_value = None
+        resposta.json.return_value = {
+            'status': 'success', 'count': 1,
+            'items': [{
+                'id': 987, 'numero_processo': '00160683920265160003',
+                'numeroprocessocommascara': '0016068-39.2026.5.16.0003',
+                'data_disponibilizacao': '2026-07-22', 'siglaTribunal': 'TRT16',
+                'tipoComunicacao': 'Intimação', 'nomeOrgao': 'Vara de teste',
+                'texto': 'Teor de teste', 'link': 'https://exemplo.test/publicacao',
+            }],
+        }
+        cliente_http.return_value.get.return_value = resposta
+        novas, total = sincronizar_djen(self.user, date(2026, 7, 22), date(2026, 7, 22))
+        self.assertEqual((novas, total), (1, 1))
+        publicacao = PublicacaoDJEN.objects.get(user=self.user)
+        self.assertEqual(publicacao.processo, self.processo)
+        novas, total = sincronizar_djen(self.user, date(2026, 7, 22), date(2026, 7, 22))
+        self.assertEqual((novas, total), (0, 1))
 
 
 class MultiTenancyTest(TestCase):
@@ -119,6 +166,61 @@ class FinanceiroTest(TestCase):
         self.assertEqual(resp.context['receitas'], 1000)
         self.assertEqual(resp.context['despesas'], 300)
         self.assertEqual(resp.context['saldo'], 700)
+
+
+class RelatorioProcessosTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('relatorios', password='x12345678')
+        self.outro = User.objects.create_user('outrorel', password='x12345678')
+        self.cliente = Cliente.objects.create(nome='Cliente Relatório', email='relatorio@x.com', user=self.user)
+        cliente_outro = Cliente.objects.create(nome='Cliente Alheio', email='outro@x.com', user=self.outro)
+        self.processo = Processo.objects.create(
+            titulo='Ação exportável', numero='0000000-00.2026.8.10.0001', cliente=self.cliente,
+            area='CIVEL', status='ANDAMENTO', tribunal='TJMA', user=self.user,
+        )
+        Processo.objects.create(titulo='Processo alheio', cliente=cliente_outro, user=self.outro)
+        self.client.login(username='relatorios', password='x12345678')
+
+    def test_exporta_excel_filtrado_por_cliente(self):
+        resposta = self.client.get(reverse('relatorio_processos_download', args=['xlsx']), {'cliente': self.cliente.id})
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(resposta['Content-Type'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        self.assertTrue(resposta.content.startswith(b'PK'))
+        planilha = load_workbook(BytesIO(resposta.content))
+        self.assertEqual(planilha['Processos']['A6'].value, self.processo.numero)
+        self.assertEqual(planilha['Processos']['B6'].value, self.processo.titulo)
+
+    def test_exporta_pdf_filtrado_por_cliente(self):
+        resposta = self.client.get(reverse('relatorio_processos_download', args=['pdf']), {'cliente': self.cliente.id})
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(resposta['Content-Type'], 'application/pdf')
+        self.assertTrue(resposta.content.startswith(b'%PDF'))
+
+    def test_formulario_de_relatorios_exibe_exportacao(self):
+        resposta = self.client.get(reverse('relatorios'))
+        self.assertEqual(resposta.status_code, 200)
+        self.assertContains(resposta, 'Exportar carteira processual')
+
+
+class RelatoriosAdicionaisTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('relatoriosplus', password='x12345678')
+        self.cliente = Cliente.objects.create(nome='Cliente Plus', email='plus@x.com', user=self.user)
+        self.processo = Processo.objects.create(titulo='Processo Plus', numero='0000000-00.2026.8.10.0002', cliente=self.cliente, user=self.user)
+        Prazo.objects.create(titulo='Manifestação', processo=self.processo, data_fatal=date.today() + timedelta(days=5), prioridade='ALTA', user=self.user)
+        Audiencia.objects.create(processo=self.processo, cliente=self.cliente, data_hora=timezone.now() + timedelta(days=1), user=self.user)
+        LancamentoFinanceiro.objects.create(tipo='RECEITA', descricao='Honorários Plus', valor=100, data_vencimento=date.today(), cliente=self.cliente, processo=self.processo, user=self.user)
+        TriagemJuridica.objects.create(user=self.user, processo=self.processo, fonte='DATAJUD', identificador_origem='relatorio-plus', titulo_origem='Intimação', categoria='INTIMACAO', prioridade='URGENTE', resumo='Providência necessária')
+        self.client.login(username='relatoriosplus', password='x12345678')
+
+    def test_exporta_relatorios_adicionais(self):
+        for tipo in ['prazos', 'audiencias', 'movimentacoes', 'financeiro', 'resumo-diario']:
+            resposta_excel = self.client.get(reverse('relatorio_download', args=[tipo, 'xlsx']), {'cliente': self.cliente.id})
+            self.assertEqual(resposta_excel.status_code, 200)
+            self.assertTrue(resposta_excel.content.startswith(b'PK'))
+            resposta_pdf = self.client.get(reverse('relatorio_download', args=[tipo, 'pdf']), {'cliente': self.cliente.id})
+            self.assertEqual(resposta_pdf.status_code, 200)
+            self.assertTrue(resposta_pdf.content.startswith(b'%PDF'))
 
 
 class ControleAcessoTest(TestCase):

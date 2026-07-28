@@ -11,6 +11,13 @@
             </div>
             <span class="self-start text-xs px-3 py-1.5 rounded-full {% if processo.status == 'ANDAMENTO' %}bg-emerald-100 text-emerald-700{% else %}bg-slate-200 text-slate-600{% endif %}">{{ processo.get_status_display }}</span>
         </div>
+        {% if processo.numero %}
+        <form method="POST" action="{% url 'processo_sincronizar_datajud' processo.id %}" class="mt-4">
+            {% csrf_token %}
+            <button class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:opacity-90">Sincronizar pelo DataJud</button>
+            <p class="mt-2 text-xs text-slate-400">Importa somente dados publicos. Confirme atos e prazos no sistema oficial.</p>
+        </form>
+        {% endif %}
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 text-sm">
             <div><p class="text-xs text-slate-400">Cliente</p><p class="font-medium">{{ processo.cliente.nome }}</p></div>
             <div><p class="text-xs text-slate-400">Parte contrária</p><p class="font-medium">{{ processo.parte_contraria|default:"—" }}</p></div>

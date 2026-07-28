@@ -5,6 +5,8 @@ adiciona as entidades de um escritório de advocacia: processos, audiências,
 prazos, tarefas, agenda, financeiro e controle de acesso (perfis).
 """
 
+import uuid
+
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -82,6 +84,8 @@ class Processo(models.Model):
     vara = models.CharField('Vara / Órgão', max_length=255, blank=True)
     comarca = models.CharField('Comarca / Foro', max_length=255, blank=True)
     tribunal = models.CharField(max_length=255, blank=True)
+    datajud_alias = models.CharField(max_length=80, blank=True)
+    ultima_sincronizacao_datajud = models.DateTimeField(null=True, blank=True)
     instancia = models.CharField(max_length=3, choices=INSTANCIA_CHOICES, default='1')
     valor_causa = models.DecimalField('Valor da causa', max_digits=14, decimal_places=2, null=True, blank=True)
     status = models.CharField(max_length=12, choices=STATUS_CHOICES, default='ANDAMENTO')
@@ -106,11 +110,66 @@ class Processo(models.Model):
         return self.status == 'ANDAMENTO'
 
 
+class ProcessoColetado(models.Model):
+    """Registro auditável de processo encontrado em fonte externa.
+
+    A coleta não cria automaticamente um ``Processo`` quando o cliente não
+    puder ser identificado com segurança. Dessa forma, o JURI-AI não atribui
+    processos de terceiros a um cliente errado. Itens duplicados são
+    identificados pelo número CNJ e podem ser vinculados ou revisados depois.
+    """
+
+    FONTE_CHOICES = [
+        ('ELAW', 'eLaw Adv'),
+        ('PJE_TRT16', 'PJe TRT16'),
+        ('PJE_TJMA', 'PJe TJMA'),
+        ('PJE_TRF1', 'PJe TRF1'),
+    ]
+    STATUS_CHOICES = [
+        ('PENDENTE', 'Aguardando conferência'),
+        ('VINCULADO', 'Vinculado a processo existente'),
+        ('IMPORTADO', 'Importado'),
+        ('IGNORADO', 'Ignorado'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             related_name='processos_coletados')
+    fonte = models.CharField(max_length=12, choices=FONTE_CHOICES)
+    numero = models.CharField(max_length=30)
+    tribunal = models.CharField(max_length=80, blank=True)
+    titulo = models.CharField(max_length=500, blank=True)
+    parte_autora = models.CharField(max_length=500, blank=True)
+    parte_re = models.CharField(max_length=500, blank=True)
+    data_referencia = models.DateField(null=True, blank=True)
+    dados = models.JSONField(default=dict, blank=True)
+    processo = models.ForeignKey(Processo, on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name='coletas_externas')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDENTE')
+    coletado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Processo coletado'
+        verbose_name_plural = 'Processos coletados'
+        ordering = ['-atualizado_em']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'fonte', 'numero'],
+                                    name='processo_coletado_usuario_fonte_numero_unico'),
+        ]
+
+    def __str__(self):
+        return f'{self.get_fonte_display()}: {self.numero}'
+
+
 class MovimentacaoProcesso(models.Model):
     """Andamentos / movimentações registradas em um processo."""
 
     processo = models.ForeignKey(Processo, on_delete=models.CASCADE, related_name='movimentacoes')
     data = models.DateField(default=timezone.now)
+    data_hora = models.DateTimeField(null=True, blank=True)
+    fonte = models.CharField(max_length=20, default='MANUAL')
+    codigo_tpu = models.CharField(max_length=40, blank=True)
+    referencia_externa = models.CharField(max_length=64, blank=True, null=True)
     descricao = models.TextField('Descrição')
     criado_em = models.DateTimeField(auto_now_add=True)
 
@@ -123,9 +182,249 @@ class MovimentacaoProcesso(models.Model):
         return f'{self.processo} - {self.data}'
 
 
+class PublicacaoDJEN(models.Model):
+    """Comunicação pública obtida pelo endpoint de leitura do DJEN."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             related_name='publicacoes_djen')
+    processo = models.ForeignKey(Processo, on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name='publicacoes_djen')
+    identificador_externo = models.CharField(max_length=100)
+    numero_processo = models.CharField(max_length=30, blank=True)
+    data_disponibilizacao = models.DateField(null=True, blank=True)
+    tribunal = models.CharField(max_length=30, blank=True)
+    tipo_comunicacao = models.CharField(max_length=100, blank=True)
+    orgao = models.CharField(max_length=255, blank=True)
+    texto = models.TextField(blank=True)
+    link = models.URLField(blank=True)
+    dados = models.JSONField(default=dict, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Publicação DJEN'
+        verbose_name_plural = 'Publicações DJEN'
+        ordering = ['-data_disponibilizacao', '-criado_em']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'identificador_externo'],
+                                    name='publicacao_djen_usuario_identificador_unico'),
+        ]
+
+    def __str__(self):
+        return f'{self.tribunal or "DJEN"} - {self.numero_processo or self.identificador_externo}'
+
+
+class ItemGoogle(models.Model):
+    """Registro local e minimizado de itens lidos do Gmail e da Agenda."""
+
+    FONTE_CHOICES = [
+        ('GMAIL', 'Gmail'),
+        ('AGENDA', 'Google Agenda'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             related_name='itens_google')
+    fonte = models.CharField(max_length=10, choices=FONTE_CHOICES)
+    identificador_externo = models.CharField(max_length=255)
+    titulo = models.CharField(max_length=500)
+    ocorrido_em = models.DateTimeField(null=True, blank=True)
+    link = models.URLField(blank=True)
+    resumo = models.TextField(blank=True)
+    dados = models.JSONField(default=dict, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Item Google'
+        verbose_name_plural = 'Itens Google'
+        ordering = ['-ocorrido_em', '-atualizado_em']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'fonte', 'identificador_externo'],
+                                    name='item_google_usuario_fonte_identificador_unico'),
+        ]
+
+    def __str__(self):
+        return f'{self.get_fonte_display()}: {self.titulo}'
+
+
+class ArquivoGoogleDrive(models.Model):
+    """Catálogo local, somente de metadados, da pasta Clientes do Google Drive."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             related_name='arquivos_google_drive')
+    identificador_externo = models.CharField(max_length=255)
+    nome = models.CharField(max_length=500)
+    mime_type = models.CharField(max_length=255, blank=True)
+    caminho = models.CharField(max_length=2000, blank=True)
+    link = models.URLField(blank=True)
+    tamanho_bytes = models.BigIntegerField(null=True, blank=True)
+    checksum_md5 = models.CharField(max_length=32, blank=True)
+    modificado_em = models.DateTimeField(null=True, blank=True)
+    dados = models.JSONField(default=dict, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Arquivo Google Drive'
+        verbose_name_plural = 'Arquivos Google Drive'
+        ordering = ['caminho', 'nome']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'identificador_externo'],
+                                    name='arquivo_drive_usuario_identificador_unico'),
+        ]
+
+    def __str__(self):
+        return self.caminho or self.nome
+
+
+class Notificacao(models.Model):
+    """Alerta interno com rastreio dos canais externos de entrega."""
+
+    TIPO_CHOICES = [
+        ('DJEN', 'Publicação DJEN'), ('GMAIL', 'Gmail'), ('AGENDA', 'Google Agenda'), ('DRIVE', 'Google Drive'),
+        ('PRAZO', 'Prazo'), ('AUDIENCIA', 'Audiência'), ('SISTEMA', 'Sistema'),
+    ]
+    PRIORIDADE_CHOICES = [('BAIXA', 'Baixa'), ('NORMAL', 'Normal'), ('ALTA', 'Alta'), ('URGENTE', 'Urgente')]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notificacoes')
+    tipo = models.CharField(max_length=12, choices=TIPO_CHOICES, default='SISTEMA')
+    prioridade = models.CharField(max_length=10, choices=PRIORIDADE_CHOICES, default='NORMAL')
+    titulo = models.CharField(max_length=255)
+    mensagem = models.TextField(blank=True)
+    link = models.URLField(blank=True)
+    dados = models.JSONField(default=dict, blank=True)
+    lida_em = models.DateTimeField(null=True, blank=True)
+    entregas = models.JSONField(default=dict, blank=True)
+    # Chave estável para impedir o mesmo alerta em canais diferentes ou em
+    # novas execuções do agendador. É opcional para os alertas manuais.
+    chave_unica = models.CharField(max_length=255, null=True, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-criado_em']
+        indexes = [
+            models.Index(fields=['user', 'lida_em', '-criado_em']),
+            models.Index(fields=['user', 'chave_unica']),
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'chave_unica'], name='notificacao_usuario_chave_unica'),
+        ]
+
+    @property
+    def lida(self):
+        return self.lida_em is not None
+
+
+class TriagemJuridica(models.Model):
+    """Leitura assistida por IA de eventos, sempre sujeita a conferência humana.
+
+    A fonte original continua sendo o DataJud, DJEN, Gmail ou Agenda. Esta
+    tabela guarda apenas a classificação e a sugestão; não cria prazo nem
+    pratica ato processual automaticamente.
+    """
+
+    FONTE_CHOICES = [
+        ('DATAJUD', 'DataJud'), ('DJEN', 'DJEN'), ('GMAIL', 'Gmail'), ('AGENDA', 'Google Agenda'),
+    ]
+    CATEGORIA_CHOICES = [
+        ('SENTENCA', 'Sentença'), ('INTIMACAO', 'Intimação'), ('AUDIENCIA', 'Audiência'),
+        ('PRAZO', 'Prazo'), ('RECURSO', 'Recurso'), ('JUNTADA', 'Mera juntada'), ('OUTRO', 'Outro'),
+    ]
+    PRIORIDADE_CHOICES = [('BAIXA', 'Baixa'), ('NORMAL', 'Normal'), ('ALTA', 'Alta'), ('URGENTE', 'Urgente')]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='triagens_juridicas')
+    processo = models.ForeignKey(Processo, on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name='triagens_juridicas')
+    fonte = models.CharField(max_length=10, choices=FONTE_CHOICES)
+    identificador_origem = models.CharField(max_length=255)
+    titulo_origem = models.CharField(max_length=500)
+    categoria = models.CharField(max_length=12, choices=CATEGORIA_CHOICES, default='OUTRO')
+    prioridade = models.CharField(max_length=10, choices=PRIORIDADE_CHOICES, default='NORMAL')
+    resumo = models.TextField(blank=True)
+    providencia_sugerida = models.TextField(blank=True)
+    confianca = models.DecimalField(max_digits=4, decimal_places=3, default=0)
+    requer_conferencia = models.BooleanField(default=True)
+    dados = models.JSONField(default=dict, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Triagem jurídica'
+        verbose_name_plural = 'Triagens jurídicas'
+        ordering = ['-criado_em']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'fonte', 'identificador_origem'],
+                                    name='triagem_usuario_fonte_origem_unica'),
+        ]
+        indexes = [models.Index(fields=['user', '-criado_em'])]
+
+    def __str__(self):
+        return f'{self.get_fonte_display()}: {self.get_categoria_display()} - {self.titulo_origem}'
+
+
 # ---------------------------------------------------------------------------
 # Audiências
 # ---------------------------------------------------------------------------
+class PushSubscription(models.Model):
+    """Inscricao Web Push vinculada a um navegador autorizado."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             related_name='push_subscriptions')
+    endpoint = models.TextField(unique=True)
+    p256dh = models.CharField(max_length=255)
+    auth = models.CharField(max_length=255)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Inscricao push'
+        verbose_name_plural = 'Inscricoes push'
+
+    def __str__(self):
+        return f'Push de {self.user.username}'
+
+
+class SolicitacaoAssinatura(models.Model):
+    """Documento preparado no JURI-AI e assinado externamente pelo titular.
+
+    O sistema guarda apenas arquivos, hashes e metadados públicos do
+    certificado. PIN, e-Token e chave privada permanecem fora da aplicação.
+    """
+
+    STATUS_CHOICES = [
+        ('PENDENTE', 'Aguardando assinatura'),
+        ('EM_ASSINATURA', 'Em assinatura'),
+        ('ASSINADO', 'Assinado e validado'),
+        ('FALHOU', 'Validação falhou'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+
+    uid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             related_name='solicitacoes_assinatura')
+    processo = models.ForeignKey(Processo, on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name='solicitacoes_assinatura')
+    finalidade = models.CharField(max_length=255)
+    arquivo_original = models.FileField(upload_to='assinaturas/originais/%Y/%m/%d/')
+    arquivo_p7s = models.FileField(upload_to='assinaturas/p7s/%Y/%m/%d/', blank=True)
+    hash_original = models.CharField(max_length=64, editable=False)
+    hash_p7s = models.CharField(max_length=64, blank=True, editable=False)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default='PENDENTE')
+    certificado_subject = models.TextField(blank=True)
+    certificado_issuer = models.TextField(blank=True)
+    validacao = models.JSONField(default=dict, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    concluido_em = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Solicitação de assinatura'
+        verbose_name_plural = 'Solicitações de assinatura'
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f'{self.finalidade} ({self.get_status_display()})'
+
+
 class Audiencia(models.Model):
     TIPO_CHOICES = [
         ('CONCILIACAO', 'Conciliação / Mediação'),
@@ -184,12 +483,21 @@ class Prazo(models.Model):
     descricao = models.TextField('Descrição', blank=True)
     processo = models.ForeignKey(Processo, on_delete=models.CASCADE, related_name='prazos',
                                  null=True, blank=True)
+    termo_inicial = models.DateField('Termo inicial', null=True, blank=True)
     data_fatal = models.DateField('Data fatal')
+    regra_contagem = models.CharField(
+        'Regra de contagem', max_length=12,
+        choices=[('MANUAL', 'Conferida manualmente'), ('UTEIS', 'Dias úteis (apoio)')],
+        default='MANUAL',
+    )
     prioridade = models.CharField(max_length=6, choices=PRIORIDADE_CHOICES, default='MEDIA')
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDENTE')
     responsavel = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
                                     null=True, blank=True, related_name='prazos_responsavel')
     concluido_em = models.DateTimeField(null=True, blank=True)
+    confirmado_em = models.DateTimeField(null=True, blank=True)
+    avisos_enviados = models.JSONField(default=list, blank=True)
+    feriados_considerados = models.JSONField(default=list, blank=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='prazos')
     criado_em = models.DateTimeField(auto_now_add=True)
 
@@ -208,6 +516,37 @@ class Prazo(models.Model):
     @property
     def atrasado(self):
         return self.status == 'PENDENTE' and self.data_fatal < timezone.localdate()
+
+    @property
+    def confirmado(self):
+        return self.confirmado_em is not None
+
+
+class FeriadoForense(models.Model):
+    """Calendário configurável de apoio. Não substitui a conferência do prazo."""
+
+    ABRANGENCIA_CHOICES = [
+        ('NACIONAL', 'Nacional'), ('ESTADUAL_MA', 'Estado do Maranhão'),
+        ('TRIBUNAL', 'Tribunal'), ('LOCAL', 'Comarca/local'),
+    ]
+
+    data = models.DateField()
+    descricao = models.CharField(max_length=255)
+    abrangencia = models.CharField(max_length=15, choices=ABRANGENCIA_CHOICES)
+    tribunal = models.CharField(max_length=80, blank=True)
+    comarca = models.CharField(max_length=120, blank=True)
+    ativo = models.BooleanField(default=True)
+    fonte = models.URLField(blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Feriado forense'
+        verbose_name_plural = 'Feriados forenses'
+        ordering = ['data', 'abrangencia']
+        constraints = [models.UniqueConstraint(fields=['data', 'descricao', 'abrangencia', 'tribunal', 'comarca'], name='feriado_forense_unico')]
+
+    def __str__(self):
+        return f'{self.data:%d/%m/%Y} - {self.descricao}'
 
 
 # ---------------------------------------------------------------------------
