@@ -5,6 +5,7 @@ import os
 import secrets
 
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -25,10 +26,21 @@ def _nao_autorizada():
 
 
 def _usuario_padrao():
-    username = os.environ.get('DJEN_IMPORT_USERNAME') or os.environ.get('ADMIN_USERNAME')
-    if not username:
-        return None
-    return get_user_model().objects.filter(username=username, is_active=True).first()
+    candidatos = (
+        os.environ.get('DJEN_IMPORT_USERNAME'),
+        os.environ.get('ADMIN_USERNAME'),
+        os.environ.get('ADMIN_EMAIL'),
+    )
+    usuarios = get_user_model().objects.filter(is_active=True)
+    for identificador in candidatos:
+        identificador = (identificador or '').strip()
+        if identificador:
+            user = usuarios.filter(
+                Q(username=identificador) | Q(email__iexact=identificador)
+            ).first()
+            if user:
+                return user
+    return usuarios.filter(is_superuser=True).order_by('id').first()
 
 
 @require_GET

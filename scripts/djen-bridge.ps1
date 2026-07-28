@@ -27,7 +27,8 @@ if (-not (Test-Path -LiteralPath $credentialFile)) {
     throw 'Execute djen-bridge.ps1 -Setup antes da primeira sincronização.'
 }
 
-$secureToken = Get-Content -LiteralPath $credentialFile -Raw | ConvertTo-SecureString
+$protectedToken = (Get-Content -LiteralPath $credentialFile -Raw).Trim()
+$secureToken = $protectedToken | ConvertTo-SecureString
 $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureToken)
 try {
     $plainToken = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
@@ -55,10 +56,22 @@ try {
     }
     $djen = Invoke-RestMethod -Uri 'https://comunicaapi.pje.jus.br/api/v1/comunicacao' -Body $query -Method Get -TimeoutSec 45
     $payload = @{ solicitacao_id = $solicitacaoId; items = @($djen.items) } | ConvertTo-Json -Depth 30 -Compress
-    $resultado = Invoke-RestMethod -Uri ($ApiUrl.TrimEnd('/') + '/integracoes/djen/importar/') -Headers $headers -ContentType 'application/json' -Body $payload -Method Post -TimeoutSec 45
+    $payloadBytes = [Text.Encoding]::UTF8.GetBytes($payload)
+    $resultado = Invoke-RestMethod -Uri ($ApiUrl.TrimEnd('/') + '/integracoes/djen/importar/') -Headers $headers -ContentType 'application/json; charset=utf-8' -Body $payloadBytes -Method Post -TimeoutSec 45
     Write-BridgeLog ("Sincronização concluída: {0} nova(s), {1} total." -f $resultado.novas, $resultado.total)
 } catch {
-    Write-BridgeLog ('ERRO: ' + $_.Exception.Message)
+    $detail = $_.ErrorDetails.Message
+    if (-not $detail -and $_.Exception.Response) {
+        try {
+            $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+            $detail = $reader.ReadToEnd()
+            $reader.Dispose()
+        } catch {
+            $detail = $null
+        }
+    }
+    if (-not $detail) { $detail = $_.Exception.Message }
+    Write-BridgeLog ('ERRO: ' + $detail)
     throw
 } finally {
     if ($ptr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
