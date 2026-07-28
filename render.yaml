@@ -56,6 +56,14 @@ services:
         value: tiagoneves.jus@gmail.com
       - key: ADMIN_PASSWORD
         sync: false
+      - key: DJEN_OAB_NUMERO
+        value: "10042"
+      - key: DJEN_OAB_UF
+        value: "MA"
+      - key: DJEN_IMPORT_USERNAME
+        value: tiago
+      - key: DJEN_BRIDGE_TOKEN
+        sync: false
       - key: IA_EMBEDDING_BACKEND
         value: openai
       - key: ANTHROPIC_API_KEY

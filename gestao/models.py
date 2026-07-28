@@ -214,6 +214,38 @@ class PublicacaoDJEN(models.Model):
         return f'{self.tribunal or "DJEN"} - {self.numero_processo or self.identificador_externo}'
 
 
+class SolicitacaoSincronizacaoDJEN(models.Model):
+    """Pedido que deve ser atendido pela ponte DJEN executada no Brasil."""
+
+    STATUS_CHOICES = [
+        ('PENDENTE', 'Pendente'),
+        ('CONCLUIDA', 'Concluída'),
+        ('FALHOU', 'Falhou'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='solicitacoes_sincronizacao_djen',
+    )
+    inicio = models.DateField()
+    fim = models.DateField()
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDENTE')
+    mensagem = models.TextField(blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+    concluido_em = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Solicitação de sincronização DJEN'
+        verbose_name_plural = 'Solicitações de sincronização DJEN'
+        ordering = ['criado_em']
+        indexes = [models.Index(fields=['status', 'criado_em'])]
+
+    def __str__(self):
+        return f'DJEN {self.inicio} a {self.fim} ({self.status})'
+
+
 class ItemGoogle(models.Model):
     """Registro local e minimizado de itens lidos do Gmail e da Agenda."""
 
