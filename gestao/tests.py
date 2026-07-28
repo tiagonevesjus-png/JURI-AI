@@ -1,5 +1,6 @@
 """Testes do app de gestão jurídica: perfis/acesso, multi-tenancy e fluxos."""
 
+import json
 import os
 from datetime import date, timedelta
 from io import BytesIO
@@ -12,8 +13,11 @@ from django.utils import timezone
 from openpyxl import load_workbook
 
 from usuarios.models import Cliente
-from .models import Audiencia, Perfil, Processo, Prazo, Tarefa, LancamentoFinanceiro, PublicacaoDJEN, TriagemJuridica
-from .services.djen import sincronizar as sincronizar_djen
+from .models import (
+    Audiencia, Perfil, Processo, Prazo, Tarefa, LancamentoFinanceiro,
+    PublicacaoDJEN, SolicitacaoSincronizacaoDJEN, TriagemJuridica,
+)
+from .services.djen import DJENBloqueioRede, sincronizar as sincronizar_djen
 
 
 class PerfilSignalTest(TestCase):
@@ -105,6 +109,63 @@ class DJENServiceTest(TestCase):
         self.assertEqual(publicacao.processo, self.processo)
         novas, total = sincronizar_djen(self.user, date(2026, 7, 22), date(2026, 7, 22))
         self.assertEqual((novas, total), (0, 1))
+
+
+class DJENBridgeTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('tiago', password='x12345678')
+        self.cliente = Cliente.objects.create(nome='Cliente ponte', user=self.user)
+        self.processo = Processo.objects.create(
+            titulo='Processo ponte', cliente=self.cliente, user=self.user,
+            numero='0016068-39.2026.5.16.0003',
+        )
+        self.headers = {'HTTP_X_DJEN_BRIDGE_TOKEN': 'segredo-teste'}
+
+    @patch.dict(os.environ, {
+        'DJEN_BRIDGE_TOKEN': 'segredo-teste', 'DJEN_OAB_NUMERO': '10042',
+        'DJEN_OAB_UF': 'MA', 'DJEN_IMPORT_USERNAME': 'tiago',
+    }, clear=False)
+    def test_ponte_exige_token_e_informa_configuracao(self):
+        self.assertEqual(self.client.get(reverse('djen_bridge_pendente')).status_code, 401)
+        pedido = SolicitacaoSincronizacaoDJEN.objects.create(
+            user=self.user, inicio=date(2026, 7, 27), fim=date(2026, 7, 28),
+        )
+        resp = self.client.get(reverse('djen_bridge_pendente'), **self.headers)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['solicitacao']['id'], pedido.id)
+        self.assertEqual(resp.json()['numero_oab'], '10042')
+        self.assertEqual(resp.json()['uf_oab'], 'MA')
+
+    @patch.dict(os.environ, {
+        'DJEN_BRIDGE_TOKEN': 'segredo-teste', 'DJEN_IMPORT_USERNAME': 'tiago',
+    }, clear=False)
+    def test_importa_e_conclui_solicitacao(self):
+        pedido = SolicitacaoSincronizacaoDJEN.objects.create(
+            user=self.user, inicio=date(2026, 7, 27), fim=date(2026, 7, 28),
+        )
+        item = {
+            'id': 321, 'numero_processo': '00160683920265160003',
+            'numeroprocessocommascara': '0016068-39.2026.5.16.0003',
+            'data_disponibilizacao': '2026-07-28', 'siglaTribunal': 'TRT16',
+            'tipoComunicacao': 'Intimação', 'texto': 'Teste da ponte',
+        }
+        resp = self.client.post(
+            reverse('djen_bridge_importar'),
+            data=json.dumps({'solicitacao_id': pedido.id, 'items': [item]}),
+            content_type='application/json', **self.headers,
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), {'ok': True, 'novas': 1, 'total': 1})
+        pedido.refresh_from_db()
+        self.assertEqual(pedido.status, 'CONCLUIDA')
+        self.assertEqual(PublicacaoDJEN.objects.get().processo, self.processo)
+
+    @patch('gestao.views.sincronizar_djen', side_effect=DJENBloqueioRede('bloqueio'))
+    def test_tela_cria_pedido_quando_ip_e_bloqueado(self, _sincronizar):
+        self.client.login(username='tiago', password='x12345678')
+        resp = self.client.post(reverse('publicacoes_djen'))
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(SolicitacaoSincronizacaoDJEN.objects.filter(status='PENDENTE').count(), 1)
 
 
 class MultiTenancyTest(TestCase):

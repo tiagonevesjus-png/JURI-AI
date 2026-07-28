@@ -24,9 +24,10 @@ from .forms import (
 from .models import (
     Perfil, Processo, Audiencia, Prazo, Tarefa, Compromisso, LancamentoFinanceiro,
     PublicacaoDJEN, SolicitacaoAssinatura, ItemGoogle, TriagemJuridica, ProcessoColetado, FeriadoForense,
+    SolicitacaoSincronizacaoDJEN,
 )
 from .services.datajud import DataJudError, sincronizar as sincronizar_datajud
-from .services.djen import DJENError, sincronizar as sincronizar_djen
+from .services.djen import DJENBloqueioRede, DJENError, sincronizar as sincronizar_djen
 from .services.google_workspace import GoogleWorkspaceError, concluir_autorizacao
 from .models import Notificacao
 from .services.assinaturas import AssinaturaError, sha256_arquivo, validar_p7s
@@ -395,6 +396,18 @@ def publicacoes_djen(request):
     if request.method == 'POST':
         try:
             novas, encontradas = sincronizar_djen(request.user, inicio, hoje)
+        except DJENBloqueioRede:
+            pedido = SolicitacaoSincronizacaoDJEN.objects.filter(
+                user=request.user, inicio=inicio, fim=hoje, status='PENDENTE',
+            ).first()
+            if pedido is None:
+                pedido = SolicitacaoSincronizacaoDJEN.objects.create(
+                    user=request.user, inicio=inicio, fim=hoje,
+                )
+            messages.warning(
+                request,
+                'Consulta encaminhada à ponte DJEN no Brasil. As publicações aparecerão automaticamente após a próxima sincronização local.',
+            )
         except DJENError as exc:
             messages.error(request, str(exc))
         else:

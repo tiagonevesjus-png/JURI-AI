@@ -35,6 +35,10 @@ class DJENError(RuntimeError):
     """Erro controlado de consulta ao DJEN."""
 
 
+class DJENBloqueioRede(DJENError):
+    """A API recusou o IP do servidor e exige a ponte executada no Brasil."""
+
+
 def configuracao_oab():
     numero = re.sub(r'\D', '', os.environ.get('DJEN_OAB_NUMERO', ''))
     uf = os.environ.get('DJEN_OAB_UF', '').strip().upper()
@@ -66,6 +70,10 @@ def consultar(inicio: date, fim: date, pagina=1):
         raise DJENError(f'Falha na consulta ao DJEN: {exc}') from exc
     if resposta.status_code == 429:
         raise DJENError('Limite temporário de consultas do DJEN atingido. Aguarde um minuto antes de tentar novamente.')
+    if resposta.status_code == 403:
+        raise DJENBloqueioRede(
+            'O Comunica PJe recusou o IP deste servidor. A consulta foi encaminhada à ponte DJEN no Brasil.'
+        )
     try:
         resposta.raise_for_status()
         corpo = resposta.json()
@@ -93,13 +101,14 @@ def _processo_correspondente(user, numero):
     return None
 
 
-def sincronizar(user, inicio: date, fim: date):
-    """Persiste comunicações públicas, deduplicando por usuário e identificador DJEN."""
-    corpo = consultar(inicio, fim)
+def persistir_itens(user, itens):
+    """Persiste uma lista já consultada, mantendo a mesma deduplicação do fluxo direto."""
     novas = 0
-    for item in corpo.get('items') or []:
+    validos = 0
+    for item in itens or []:
         if not isinstance(item, dict):
             continue
+        validos += 1
         numero = re.sub(r'\D', '', str(item.get('numero_processo') or ''))
         processo = _processo_correspondente(user, numero)
         disponibilidade = parse_date(str(item.get('data_disponibilizacao') or item.get('datadisponibilizacao') or ''))
@@ -123,4 +132,10 @@ def sincronizar(user, inicio: date, fim: date):
             criar_notificacao(user, 'DJEN', f'Nova publicação DJEN: {item.get("siglaTribunal") or "tribunal"}',
                               (item.get('tipoComunicacao') or item.get('texto') or 'Nova comunicação processual.')[:2000],
                               prioridade='ALTA', link=item.get('link') or '', dados={'identificador': _identificador(item)})
-    return novas, len(corpo.get('items') or [])
+    return novas, validos
+
+
+def sincronizar(user, inicio: date, fim: date):
+    """Consulta e persiste comunicações públicas do DJEN."""
+    corpo = consultar(inicio, fim)
+    return persistir_itens(user, corpo.get('items') or [])

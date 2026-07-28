@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from . import views_djen_bridge
 
 urlpatterns = [
     path('', views.dashboard, name='dashboard'),
@@ -24,6 +25,10 @@ urlpatterns = [
     path('processos/<int:id>/sincronizar-datajud/', views.processo_sincronizar_datajud,
          name='processo_sincronizar_datajud'),
     path('publicacoes/', views.publicacoes_djen, name='publicacoes_djen'),
+    path('integracoes/djen/pendente/', views_djen_bridge.djen_bridge_pendente,
+         name='djen_bridge_pendente'),
+    path('integracoes/djen/importar/', views_djen_bridge.djen_bridge_importar,
+         name='djen_bridge_importar'),
 
     # Agenda
     path('agenda/', views.agenda, name='agenda'),
