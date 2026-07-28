@@ -113,7 +113,7 @@ class DJENServiceTest(TestCase):
 
 class DJENBridgeTest(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user('tiago', password='x12345678')
+        self.user = User.objects.create_user('tiago', email='tiago@example.com', password='x12345678')
         self.cliente = Cliente.objects.create(nome='Cliente ponte', user=self.user)
         self.processo = Processo.objects.create(
             titulo='Processo ponte', cliente=self.cliente, user=self.user,
@@ -159,6 +159,23 @@ class DJENBridgeTest(TestCase):
         pedido.refresh_from_db()
         self.assertEqual(pedido.status, 'CONCLUIDA')
         self.assertEqual(PublicacaoDJEN.objects.get().processo, self.processo)
+
+    @patch.dict(os.environ, {
+        'DJEN_BRIDGE_TOKEN': 'segredo-teste', 'DJEN_IMPORT_USERNAME': 'tiago@example.com',
+    }, clear=False)
+    def test_importacao_automatica_localiza_usuario_por_email(self):
+        item = {
+            'id': 654, 'numero_processo': '00160683920265160003',
+            'data_disponibilizacao': '2026-07-28', 'siglaTribunal': 'TRT16',
+            'tipoComunicacao': 'Intimação', 'texto': 'Importação automática',
+        }
+        resp = self.client.post(
+            reverse('djen_bridge_importar'),
+            data=json.dumps({'solicitacao_id': None, 'items': [item]}),
+            content_type='application/json', **self.headers,
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(PublicacaoDJEN.objects.get().user, self.user)
 
     @patch('gestao.views.sincronizar_djen', side_effect=DJENBloqueioRede('bloqueio'))
     def test_tela_cria_pedido_quando_ip_e_bloqueado(self, _sincronizar):
