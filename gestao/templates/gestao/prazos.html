@@ -4,9 +4,9 @@
     <div class="flex flex-wrap gap-4 justify-between items-center">
         <div>
             <h1 class="text-3xl font-semibold tracking-tight">Prazos</h1>
-            <p class="text-slate-500 mt-1">Controle de prazos processuais</p>
+            <p class="text-slate-500 mt-1">Prazos só recebem alertas após a conferência do termo inicial, data final e calendário aplicável.</p>
         </div>
-        <button onclick="abrirModal('modal-prazo')" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:opacity-90">+ Novo prazo</button>
+        <div class="flex gap-2"><a href="{% url 'feriados_forenses' %}" class="border border-slate-300 bg-white text-slate-700 px-5 py-2.5 rounded-xl text-sm font-medium">Calendário de feriados</a><button onclick="abrirModal('modal-prazo')" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:opacity-90">+ Novo prazo</button></div>
     </div>
 
     <form method="GET" class="flex gap-2">
@@ -25,6 +25,7 @@
                     <th class="text-left font-medium px-6 py-3">Data fatal</th>
                     <th class="text-left font-medium px-6 py-3">Prioridade</th>
                     <th class="text-left font-medium px-6 py-3">Status</th>
+                    <th class="text-left font-medium px-6 py-3">Conferência</th>
                     <th class="px-6 py-3"></th>
                 </tr>
             </thead>
@@ -37,6 +38,7 @@
                         <td class="px-6 py-4">
                             <span class="text-xs px-2.5 py-1 rounded-full {% if p.prioridade == 'ALTA' %}bg-red-100 text-red-700{% elif p.prioridade == 'MEDIA' %}bg-amber-100 text-amber-700{% else %}bg-slate-200 text-slate-600{% endif %}">{{ p.get_prioridade_display }}</span>
                         </td>
+                        <td class="px-6 py-4 text-xs {% if p.confirmado %}text-emerald-600{% else %}text-amber-700{% endif %}">{% if p.confirmado %}confirmado{% else %}confirmação pendente{% endif %}</td>
                         <td class="px-6 py-4">
                             <span class="text-xs px-2.5 py-1 rounded-full {% if p.status == 'CUMPRIDO' %}bg-emerald-100 text-emerald-700{% elif p.status == 'PERDIDO' %}bg-red-100 text-red-700{% else %}bg-slate-200 text-slate-600{% endif %}">{{ p.get_status_display }}</span>
                         </td>
@@ -47,7 +49,7 @@
                         </td>
                     </tr>
                 {% empty %}
-                    <tr><td colspan="6" class="px-6 py-10 text-center text-slate-400">Nenhum prazo cadastrado.</td></tr>
+                    <tr><td colspan="7" class="px-6 py-10 text-center text-slate-400">Nenhum prazo cadastrado.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

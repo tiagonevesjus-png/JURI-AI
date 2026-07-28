@@ -110,6 +110,57 @@ class Processo(models.Model):
         return self.status == 'ANDAMENTO'
 
 
+class ProcessoColetado(models.Model):
+    """Registro auditável de processo encontrado em fonte externa.
+
+    A coleta não cria automaticamente um ``Processo`` quando o cliente não
+    puder ser identificado com segurança. Dessa forma, o JURI-AI não atribui
+    processos de terceiros a um cliente errado. Itens duplicados são
+    identificados pelo número CNJ e podem ser vinculados ou revisados depois.
+    """
+
+    FONTE_CHOICES = [
+        ('ELAW', 'eLaw Adv'),
+        ('PJE_TRT16', 'PJe TRT16'),
+        ('PJE_TJMA', 'PJe TJMA'),
+        ('PJE_TRF1', 'PJe TRF1'),
+    ]
+    STATUS_CHOICES = [
+        ('PENDENTE', 'Aguardando conferência'),
+        ('VINCULADO', 'Vinculado a processo existente'),
+        ('IMPORTADO', 'Importado'),
+        ('IGNORADO', 'Ignorado'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             related_name='processos_coletados')
+    fonte = models.CharField(max_length=12, choices=FONTE_CHOICES)
+    numero = models.CharField(max_length=30)
+    tribunal = models.CharField(max_length=80, blank=True)
+    titulo = models.CharField(max_length=500, blank=True)
+    parte_autora = models.CharField(max_length=500, blank=True)
+    parte_re = models.CharField(max_length=500, blank=True)
+    data_referencia = models.DateField(null=True, blank=True)
+    dados = models.JSONField(default=dict, blank=True)
+    processo = models.ForeignKey(Processo, on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name='coletas_externas')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDENTE')
+    coletado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Processo coletado'
+        verbose_name_plural = 'Processos coletados'
+        ordering = ['-atualizado_em']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'fonte', 'numero'],
+                                    name='processo_coletado_usuario_fonte_numero_unico'),
+        ]
+
+    def __str__(self):
+        return f'{self.get_fonte_display()}: {self.numero}'
+
+
 class MovimentacaoProcesso(models.Model):
     """Andamentos / movimentações registradas em um processo."""
 
@@ -244,15 +295,71 @@ class Notificacao(models.Model):
     dados = models.JSONField(default=dict, blank=True)
     lida_em = models.DateTimeField(null=True, blank=True)
     entregas = models.JSONField(default=dict, blank=True)
+    # Chave estável para impedir o mesmo alerta em canais diferentes ou em
+    # novas execuções do agendador. É opcional para os alertas manuais.
+    chave_unica = models.CharField(max_length=255, null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-criado_em']
-        indexes = [models.Index(fields=['user', 'lida_em', '-criado_em'])]
+        indexes = [
+            models.Index(fields=['user', 'lida_em', '-criado_em']),
+            models.Index(fields=['user', 'chave_unica']),
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'chave_unica'], name='notificacao_usuario_chave_unica'),
+        ]
 
     @property
     def lida(self):
         return self.lida_em is not None
+
+
+class TriagemJuridica(models.Model):
+    """Leitura assistida por IA de eventos, sempre sujeita a conferência humana.
+
+    A fonte original continua sendo o DataJud, DJEN, Gmail ou Agenda. Esta
+    tabela guarda apenas a classificação e a sugestão; não cria prazo nem
+    pratica ato processual automaticamente.
+    """
+
+    FONTE_CHOICES = [
+        ('DATAJUD', 'DataJud'), ('DJEN', 'DJEN'), ('GMAIL', 'Gmail'), ('AGENDA', 'Google Agenda'),
+    ]
+    CATEGORIA_CHOICES = [
+        ('SENTENCA', 'Sentença'), ('INTIMACAO', 'Intimação'), ('AUDIENCIA', 'Audiência'),
+        ('PRAZO', 'Prazo'), ('RECURSO', 'Recurso'), ('JUNTADA', 'Mera juntada'), ('OUTRO', 'Outro'),
+    ]
+    PRIORIDADE_CHOICES = [('BAIXA', 'Baixa'), ('NORMAL', 'Normal'), ('ALTA', 'Alta'), ('URGENTE', 'Urgente')]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='triagens_juridicas')
+    processo = models.ForeignKey(Processo, on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name='triagens_juridicas')
+    fonte = models.CharField(max_length=10, choices=FONTE_CHOICES)
+    identificador_origem = models.CharField(max_length=255)
+    titulo_origem = models.CharField(max_length=500)
+    categoria = models.CharField(max_length=12, choices=CATEGORIA_CHOICES, default='OUTRO')
+    prioridade = models.CharField(max_length=10, choices=PRIORIDADE_CHOICES, default='NORMAL')
+    resumo = models.TextField(blank=True)
+    providencia_sugerida = models.TextField(blank=True)
+    confianca = models.DecimalField(max_digits=4, decimal_places=3, default=0)
+    requer_conferencia = models.BooleanField(default=True)
+    dados = models.JSONField(default=dict, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Triagem jurídica'
+        verbose_name_plural = 'Triagens jurídicas'
+        ordering = ['-criado_em']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'fonte', 'identificador_origem'],
+                                    name='triagem_usuario_fonte_origem_unica'),
+        ]
+        indexes = [models.Index(fields=['user', '-criado_em'])]
+
+    def __str__(self):
+        return f'{self.get_fonte_display()}: {self.get_categoria_display()} - {self.titulo_origem}'
 
 
 # ---------------------------------------------------------------------------
@@ -376,12 +483,21 @@ class Prazo(models.Model):
     descricao = models.TextField('Descrição', blank=True)
     processo = models.ForeignKey(Processo, on_delete=models.CASCADE, related_name='prazos',
                                  null=True, blank=True)
+    termo_inicial = models.DateField('Termo inicial', null=True, blank=True)
     data_fatal = models.DateField('Data fatal')
+    regra_contagem = models.CharField(
+        'Regra de contagem', max_length=12,
+        choices=[('MANUAL', 'Conferida manualmente'), ('UTEIS', 'Dias úteis (apoio)')],
+        default='MANUAL',
+    )
     prioridade = models.CharField(max_length=6, choices=PRIORIDADE_CHOICES, default='MEDIA')
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDENTE')
     responsavel = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
                                     null=True, blank=True, related_name='prazos_responsavel')
     concluido_em = models.DateTimeField(null=True, blank=True)
+    confirmado_em = models.DateTimeField(null=True, blank=True)
+    avisos_enviados = models.JSONField(default=list, blank=True)
+    feriados_considerados = models.JSONField(default=list, blank=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='prazos')
     criado_em = models.DateTimeField(auto_now_add=True)
 
@@ -400,6 +516,37 @@ class Prazo(models.Model):
     @property
     def atrasado(self):
         return self.status == 'PENDENTE' and self.data_fatal < timezone.localdate()
+
+    @property
+    def confirmado(self):
+        return self.confirmado_em is not None
+
+
+class FeriadoForense(models.Model):
+    """Calendário configurável de apoio. Não substitui a conferência do prazo."""
+
+    ABRANGENCIA_CHOICES = [
+        ('NACIONAL', 'Nacional'), ('ESTADUAL_MA', 'Estado do Maranhão'),
+        ('TRIBUNAL', 'Tribunal'), ('LOCAL', 'Comarca/local'),
+    ]
+
+    data = models.DateField()
+    descricao = models.CharField(max_length=255)
+    abrangencia = models.CharField(max_length=15, choices=ABRANGENCIA_CHOICES)
+    tribunal = models.CharField(max_length=80, blank=True)
+    comarca = models.CharField(max_length=120, blank=True)
+    ativo = models.BooleanField(default=True)
+    fonte = models.URLField(blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Feriado forense'
+        verbose_name_plural = 'Feriados forenses'
+        ordering = ['data', 'abrangencia']
+        constraints = [models.UniqueConstraint(fields=['data', 'descricao', 'abrangencia', 'tribunal', 'comarca'], name='feriado_forense_unico')]
+
+    def __str__(self):
+        return f'{self.data:%d/%m/%Y} - {self.descricao}'
 
 
 # ---------------------------------------------------------------------------

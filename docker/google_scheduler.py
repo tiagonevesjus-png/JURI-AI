@@ -30,6 +30,13 @@ def main():
         time.sleep(max(1, int((alvo - datetime.now(FUSO)).total_seconds())))
         comando = [sys.executable, 'manage.py', 'sincronizar_google', '--usuario', USUARIO]
         resultado = subprocess.run(comando, check=False)
+        if not resultado.returncode:
+            # Espelha os eventos lidos na agenda interna. A integração com o
+            # Google continua estritamente de leitura.
+            subprocess.run(
+                [sys.executable, 'manage.py', 'importar_agenda_google', '--usuario', USUARIO],
+                check=False,
+            )
         if resultado.returncode:
             print(f'Google falhou ({resultado.returncode}); nova tentativa em {ATRASO} minuto(s).', flush=True)
             time.sleep(ATRASO * 60)

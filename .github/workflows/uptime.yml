@@ -1,0 +1,48 @@
+name: Monitoramento externo JURI-AI
+
+on:
+  schedule:
+    # O GitHub pode atrasar execuções agendadas; o monitor não depende da VPS.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  disponibilidade-e-dns:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validar configuração
+        env:
+          # O domínio principal já é a configuração padrão. Uma variável do
+          # repositório pode substituí-lo em uma futura troca de domínio.
+          JURIAI_PUBLIC_URL: ${{ vars.JURIAI_PUBLIC_URL || 'https://tiagonevesadv.com.br' }}
+        run: |
+          test -n "$JURIAI_PUBLIC_URL" || {
+            echo "Defina o secret JURIAI_PUBLIC_URL com a URL HTTPS pública do JURI-AI." >&2
+            exit 1
+          }
+
+      - name: Verificar DNS e disponibilidade HTTPS
+        env:
+          JURIAI_PUBLIC_URL: ${{ vars.JURIAI_PUBLIC_URL || 'https://tiagonevesadv.com.br' }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          import socket
+          from urllib.parse import urlparse
+
+          url = os.environ["JURIAI_PUBLIC_URL"].strip()
+          parsed = urlparse(url)
+          if parsed.scheme != "https" or not parsed.hostname:
+              raise SystemExit("JURIAI_PUBLIC_URL deve usar HTTPS, por exemplo https://tiagonevesadv.com.br")
+          addresses = sorted({item[4][0] for item in socket.getaddrinfo(parsed.hostname, 443, type=socket.SOCK_STREAM)})
+          if not addresses:
+              raise SystemExit(f"Nenhum endereço DNS encontrado para {parsed.hostname}")
+          print(f"DNS {parsed.hostname}: {', '.join(addresses)}")
+          PY
+          curl --fail --silent --show-error --location --max-time 25 --retry 2 \
+            "$JURIAI_PUBLIC_URL/healthz/"

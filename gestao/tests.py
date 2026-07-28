@@ -2,14 +2,17 @@
 
 import os
 from datetime import date, timedelta
+from io import BytesIO
 from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
+from openpyxl import load_workbook
 
 from usuarios.models import Cliente
-from .models import Perfil, Processo, Prazo, Tarefa, LancamentoFinanceiro, PublicacaoDJEN
+from .models import Audiencia, Perfil, Processo, Prazo, Tarefa, LancamentoFinanceiro, PublicacaoDJEN, TriagemJuridica
 from .services.djen import sincronizar as sincronizar_djen
 
 
@@ -163,6 +166,61 @@ class FinanceiroTest(TestCase):
         self.assertEqual(resp.context['receitas'], 1000)
         self.assertEqual(resp.context['despesas'], 300)
         self.assertEqual(resp.context['saldo'], 700)
+
+
+class RelatorioProcessosTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('relatorios', password='x12345678')
+        self.outro = User.objects.create_user('outrorel', password='x12345678')
+        self.cliente = Cliente.objects.create(nome='Cliente Relatório', email='relatorio@x.com', user=self.user)
+        cliente_outro = Cliente.objects.create(nome='Cliente Alheio', email='outro@x.com', user=self.outro)
+        self.processo = Processo.objects.create(
+            titulo='Ação exportável', numero='0000000-00.2026.8.10.0001', cliente=self.cliente,
+            area='CIVEL', status='ANDAMENTO', tribunal='TJMA', user=self.user,
+        )
+        Processo.objects.create(titulo='Processo alheio', cliente=cliente_outro, user=self.outro)
+        self.client.login(username='relatorios', password='x12345678')
+
+    def test_exporta_excel_filtrado_por_cliente(self):
+        resposta = self.client.get(reverse('relatorio_processos_download', args=['xlsx']), {'cliente': self.cliente.id})
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(resposta['Content-Type'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        self.assertTrue(resposta.content.startswith(b'PK'))
+        planilha = load_workbook(BytesIO(resposta.content))
+        self.assertEqual(planilha['Processos']['A6'].value, self.processo.numero)
+        self.assertEqual(planilha['Processos']['B6'].value, self.processo.titulo)
+
+    def test_exporta_pdf_filtrado_por_cliente(self):
+        resposta = self.client.get(reverse('relatorio_processos_download', args=['pdf']), {'cliente': self.cliente.id})
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(resposta['Content-Type'], 'application/pdf')
+        self.assertTrue(resposta.content.startswith(b'%PDF'))
+
+    def test_formulario_de_relatorios_exibe_exportacao(self):
+        resposta = self.client.get(reverse('relatorios'))
+        self.assertEqual(resposta.status_code, 200)
+        self.assertContains(resposta, 'Exportar carteira processual')
+
+
+class RelatoriosAdicionaisTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('relatoriosplus', password='x12345678')
+        self.cliente = Cliente.objects.create(nome='Cliente Plus', email='plus@x.com', user=self.user)
+        self.processo = Processo.objects.create(titulo='Processo Plus', numero='0000000-00.2026.8.10.0002', cliente=self.cliente, user=self.user)
+        Prazo.objects.create(titulo='Manifestação', processo=self.processo, data_fatal=date.today() + timedelta(days=5), prioridade='ALTA', user=self.user)
+        Audiencia.objects.create(processo=self.processo, cliente=self.cliente, data_hora=timezone.now() + timedelta(days=1), user=self.user)
+        LancamentoFinanceiro.objects.create(tipo='RECEITA', descricao='Honorários Plus', valor=100, data_vencimento=date.today(), cliente=self.cliente, processo=self.processo, user=self.user)
+        TriagemJuridica.objects.create(user=self.user, processo=self.processo, fonte='DATAJUD', identificador_origem='relatorio-plus', titulo_origem='Intimação', categoria='INTIMACAO', prioridade='URGENTE', resumo='Providência necessária')
+        self.client.login(username='relatoriosplus', password='x12345678')
+
+    def test_exporta_relatorios_adicionais(self):
+        for tipo in ['prazos', 'audiencias', 'movimentacoes', 'financeiro', 'resumo-diario']:
+            resposta_excel = self.client.get(reverse('relatorio_download', args=[tipo, 'xlsx']), {'cliente': self.cliente.id})
+            self.assertEqual(resposta_excel.status_code, 200)
+            self.assertTrue(resposta_excel.content.startswith(b'PK'))
+            resposta_pdf = self.client.get(reverse('relatorio_download', args=[tipo, 'pdf']), {'cliente': self.cliente.id})
+            self.assertEqual(resposta_pdf.status_code, 200)
+            self.assertTrue(resposta_pdf.content.startswith(b'%PDF'))
 
 
 class ControleAcessoTest(TestCase):

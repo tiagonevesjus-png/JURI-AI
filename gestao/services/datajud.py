@@ -50,7 +50,7 @@ def consultar(numero, alias=''):
             json={'size': 100, 'query': {'match': {'numeroProcesso': cnj}}}, timeout=(5, 30))
         resposta.raise_for_status()
     except requests.RequestException as exc:
-        raise DataJudError(f'Falha na consulta DataJud: {exc}') from exc
+        raise DataJudError('Falha de conexão com o DataJud; a rotina tentará novamente.') from exc
     corpo = resposta.json()
     if corpo.get('timed_out') or corpo.get('_shards', {}).get('failed', 0):
         raise DataJudError('Resposta parcial do DataJud; tente novamente mais tarde.')

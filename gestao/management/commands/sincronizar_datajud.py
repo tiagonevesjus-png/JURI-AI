@@ -14,13 +14,20 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--usuario', required=True, help='Nome de usuário local do JURI-AI.')
 
+        parser.add_argument('--limite', type=int, default=0, help='Quantidade maxima de processos por ciclo (0 = todos).')
+
     def handle(self, *args, **options):
         try:
             user = get_user_model().objects.get(username=options['usuario'])
         except get_user_model().DoesNotExist as exc:
             raise CommandError('Usuário não encontrado.') from exc
 
-        processos = Processo.objects.filter(user=user, status='ANDAMENTO').exclude(numero='').order_by('id')
+        processos = Processo.objects.filter(user=user, status='ANDAMENTO').exclude(numero='').order_by(
+            'ultima_sincronizacao_datajud', 'id'
+        )
+        limite = max(0, int(options.get('limite', 0)))
+        if limite:
+            processos = processos[:limite]
         total = processos.count()
         sucessos = falhas = novas_total = 0
         alterados = []

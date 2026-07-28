@@ -24,7 +24,7 @@ services:
   web:
     build: .
     restart: unless-stopped
-    env_file: .env
+    env_file: ${ENV_FILE:-.env}
     environment:
       POSTGRES_HOST: db
     depends_on:
@@ -33,13 +33,16 @@ services:
     volumes:
       - media_data:/app/media
       - static_data:/app/staticfiles
+      # Tokens OAuth, índices e dados operacionais que não podem se perder em
+      # uma atualização do contêiner.
+      - app_data:/app/data
     expose:
       - "8000"
 
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
-    env_file: .env
+    env_file: ${ENV_FILE:-.env}
     depends_on:
       - web
     ports:
@@ -54,7 +57,7 @@ services:
   worker:
     build: .
     restart: unless-stopped
-    env_file: .env
+    env_file: ${ENV_FILE:-.env}
     environment:
       POSTGRES_HOST: db
     depends_on:
@@ -62,9 +65,114 @@ services:
         condition: service_healthy
     volumes:
       - media_data:/app/media
+      - app_data:/app/data
     # Não precisa migrar/coletar estáticos de novo: só processa a fila.
     entrypoint: []
     command: ["python", "manage.py", "qcluster"]
+
+  # Monitores persistentes. Em produção eles precisam acompanhar o ciclo de
+  # vida da aplicação; não devem ficar restritos ao computador local.
+  djen-monitor:
+    build: .
+    restart: unless-stopped
+    env_file: ${ENV_FILE:-.env}
+    environment:
+      POSTGRES_HOST: db
+      SKIP_STARTUP_TASKS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["python", "docker/djen_scheduler.py"]
+
+  google-monitor:
+    build: .
+    restart: unless-stopped
+    env_file: ${ENV_FILE:-.env}
+    environment:
+      POSTGRES_HOST: db
+      SKIP_STARTUP_TASKS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - app_data:/app/data
+    command: ["python", "docker/google_scheduler.py"]
+
+  drive-clientes-monitor:
+    build: .
+    restart: unless-stopped
+    env_file: ${ENV_FILE:-.env}
+    environment:
+      POSTGRES_HOST: db
+      SKIP_STARTUP_TASKS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - app_data:/app/data
+    command: ["python", "docker/drive_scheduler.py"]
+
+  datajud-monitor:
+    build: .
+    restart: unless-stopped
+    env_file: ${ENV_FILE:-.env}
+    environment:
+      POSTGRES_HOST: db
+      SKIP_STARTUP_TASKS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["python", "docker/datajud_scheduler.py"]
+
+  triagem-monitor:
+    build: .
+    restart: unless-stopped
+    env_file: ${ENV_FILE:-.env}
+    environment:
+      POSTGRES_HOST: db
+      SKIP_STARTUP_TASKS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["python", "docker/triagem_scheduler.py"]
+
+  prazos-monitor:
+    build: .
+    restart: unless-stopped
+    env_file: ${ENV_FILE:-.env}
+    environment:
+      POSTGRES_HOST: db
+      SKIP_STARTUP_TASKS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["python", "docker/prazos_scheduler.py"]
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: ${ENV_FILE:-.env}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - backup_data:/backups
+      - ./docker/backup_scheduler.sh:/usr/local/bin/backup_scheduler.sh:ro
+    command: ["/bin/sh", "/usr/local/bin/backup_scheduler.sh"]
+
+  backup-report-monitor:
+    build: .
+    restart: unless-stopped
+    env_file: ${ENV_FILE:-.env}
+    environment:
+      POSTGRES_HOST: db
+      SKIP_STARTUP_TASKS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - backup_data:/app/backups:ro
+    command: ["python", "docker/backup_report_scheduler.py"]
 
 volumes:
   postgres_data:
@@ -72,3 +180,5 @@ volumes:
   static_data:
   caddy_data:
   caddy_config:
+  app_data:
+  backup_data:

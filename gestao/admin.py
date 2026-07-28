@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from .models import (
     Perfil, Processo, MovimentacaoProcesso, Audiencia, Prazo, Tarefa,
-    Compromisso, LancamentoFinanceiro, SolicitacaoAssinatura,
+    Compromisso, LancamentoFinanceiro, SolicitacaoAssinatura, FeriadoForense,
 )
 
 
@@ -41,6 +41,14 @@ class PrazoAdmin(admin.ModelAdmin):
     list_filter = ('status', 'prioridade')
     search_fields = ('titulo', 'processo__titulo')
     date_hierarchy = 'data_fatal'
+
+
+@admin.register(FeriadoForense)
+class FeriadoForenseAdmin(admin.ModelAdmin):
+    list_display = ('data', 'descricao', 'abrangencia', 'tribunal', 'comarca', 'ativo')
+    list_filter = ('abrangencia', 'ativo', 'tribunal')
+    search_fields = ('descricao', 'tribunal', 'comarca')
+    date_hierarchy = 'data'
 
 
 @admin.register(Tarefa)

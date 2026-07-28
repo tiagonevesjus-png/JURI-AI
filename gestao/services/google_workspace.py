@@ -40,6 +40,16 @@ class GoogleWorkspaceError(Exception):
     """Falha de configuração, autorização ou comunicação com o Google."""
 
 
+def _request_google(method, url, **kwargs):
+    """Executa chamadas ao Google sem expor URLs ou tokens em rastros de erro."""
+    try:
+        return requests.request(method, url, **kwargs)
+    except requests.RequestException as exc:
+        raise GoogleWorkspaceError(
+            'Não foi possível conectar aos serviços Google; a rotina tentará novamente.'
+        ) from exc
+
+
 def _client_id():
     value = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '').strip()
     if not value:
@@ -176,7 +186,7 @@ def concluir_autorizacao(state, code='', error=''):
     }
     if _client_secret():
         dados_token['client_secret'] = _client_secret()
-    resposta = requests.post(TOKEN_URL, data=dados_token, timeout=(5, 20))
+    resposta = _request_google('POST', TOKEN_URL, data=dados_token, timeout=(5, 20))
     if not resposta.ok:
         try:
             detalhe = resposta.json()
@@ -206,7 +216,7 @@ def _access_token():
     }
     if _client_secret():
         dados_refresh['client_secret'] = _client_secret()
-    resposta = requests.post(TOKEN_URL, data=dados_refresh, timeout=(5, 20))
+    resposta = _request_google('POST', TOKEN_URL, data=dados_refresh, timeout=(5, 20))
     if not resposta.ok:
         raise GoogleWorkspaceError('Não foi possível renovar o acesso Google; autorize novamente.')
     atualizado = resposta.json()
@@ -217,12 +227,12 @@ def _access_token():
 
 
 def _get(url, params=None):
-    resposta = requests.get(url, params=params, headers={'Authorization': f'Bearer {_access_token()}'}, timeout=(5, 25))
+    resposta = _request_google('GET', url, params=params, headers={'Authorization': f'Bearer {_access_token()}'}, timeout=(5, 25))
     if resposta.status_code == 401:
         token = _carregar_token()
         token['expires_at'] = 0
         _salvar_token(token)
-        resposta = requests.get(url, params=params, headers={'Authorization': f'Bearer {_access_token()}'}, timeout=(5, 25))
+        resposta = _request_google('GET', url, params=params, headers={'Authorization': f'Bearer {_access_token()}'}, timeout=(5, 25))
     if not resposta.ok:
         detalhe = ''
         try:
@@ -244,7 +254,8 @@ def enviar_email(destinatario, assunto, corpo):
     mensagem['Subject'] = assunto
     mensagem.set_content(corpo)
     conteudo = base64.urlsafe_b64encode(mensagem.as_bytes()).rstrip(b'=').decode('ascii')
-    resposta = requests.post(
+    resposta = _request_google(
+        'POST',
         f'{GMAIL_URL}/messages/send',
         headers={'Authorization': f'Bearer {_access_token()}'},
         json={'raw': conteudo},
@@ -254,7 +265,8 @@ def enviar_email(destinatario, assunto, corpo):
         token = _carregar_token()
         token['expires_at'] = 0
         _salvar_token(token)
-        resposta = requests.post(
+        resposta = _request_google(
+            'POST',
             f'{GMAIL_URL}/messages/send',
             headers={'Authorization': f'Bearer {_access_token()}'},
             json={'raw': conteudo},

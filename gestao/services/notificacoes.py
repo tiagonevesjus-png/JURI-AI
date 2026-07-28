@@ -14,9 +14,31 @@ def _ativo(nome):
 
 
 def criar(user, tipo, titulo, mensagem='', prioridade='NORMAL', link='', dados=None):
+    dados = dados or {}
+    # Os conectores persistem seus eventos nas tabelas próprias. Quando a
+    # consolidação está ativa, o alerta externo nasce apenas após a triagem,
+    # evitando quatro avisos para a mesma ocorrência processual.
+    if _ativo('NOTIFICATIONS_CONSOLIDATE_EVENTS') and (
+        tipo in {'DJEN', 'GMAIL', 'AGENDA'} or dados.get('fonte') == 'datajud'
+    ):
+        return None
+    chave_unica = str(dados.get('dedup_key', '')).strip() or None
+    # Uma consolidação pode ser atualizada quando chega nova fonte para o
+    # mesmo processo, mas nunca é reenviada aos canais externos.
+    if chave_unica:
+        notificacao = Notificacao.objects.filter(user=user, chave_unica=chave_unica).first()
+        if notificacao:
+            notificacao.tipo = tipo
+            notificacao.titulo = titulo[:255]
+            notificacao.mensagem = mensagem
+            notificacao.prioridade = prioridade
+            notificacao.link = link
+            notificacao.dados = dados
+            notificacao.save(update_fields=['tipo', 'titulo', 'mensagem', 'prioridade', 'link', 'dados'])
+            return notificacao
     notificacao = Notificacao.objects.create(
         user=user, tipo=tipo, titulo=titulo[:255], mensagem=mensagem, prioridade=prioridade,
-        link=link, dados=dados or {},
+        link=link, dados=dados, chave_unica=chave_unica,
     )
     if _ativo('NOTIFICATIONS_DELIVERY_ENABLED'):
         notificacao.entregas = enviar(notificacao)
@@ -133,8 +155,8 @@ def _enviar_push(notificacao):
                 ttl=86400,
             )
             entregues += 1
-        except WebPushException as exc:
-            if getattr(exc.response, 'status_code', None) in (404, 410):
+        except (WebPushException, requests.RequestException) as exc:
+            if getattr(getattr(exc, 'response', None), 'status_code', None) in (404, 410):
                 inscricao.delete()
                 removidas += 1
             else:

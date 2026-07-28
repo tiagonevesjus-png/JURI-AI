@@ -7,12 +7,13 @@
     <aside class="hidden md:flex md:flex-col w-64 bg-white border-r border-slate-200 fixed inset-y-0">
         <div class="px-6 py-5 border-b border-slate-100">
             <a href="{% url 'dashboard' %}" class="flex items-center gap-2">
-                <span class="text-2xl">⚖️</span>
+                <img src="{% static 'gestao/logo-tiago-neves.png' %}" alt="Tiago Neves Advocacia" class="w-9 h-9 rounded-full object-cover">
                 <span class="text-base font-semibold tracking-tight leading-tight">{{ escritorio_nome }}</span>
             </a>
         </div>
         <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1 text-sm">
             {% url 'dashboard' as u_dash %}
+            {% url 'hoje' as u_hoje %}
             {% url 'clientes' as u_cli %}
             {% url 'processos' as u_proc %}
             {% url 'publicacoes_djen' as u_pub %}
@@ -24,7 +25,9 @@
             {% url 'tarefas' as u_tar %}
             {% url 'financeiro' as u_fin %}
             {% url 'relatorios' as u_rel %}
+            {% url 'base_conhecimento' as u_conhecimento %}
             {% with path=request.path %}
+            <a href="{{ u_hoje }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_hoje %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">☀️ <span>Hoje</span></a>
             <a href="{{ u_dash }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_dash %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">📊 <span>Dashboard</span></a>
             <a href="{{ u_cli }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_cli %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">👥 <span>Clientes</span></a>
             <a href="{{ u_proc }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if u_proc in path %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">📁 <span>Processos</span></a>
@@ -36,6 +39,7 @@
             <a href="{{ u_tar }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_tar %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">✅ <span>Tarefas</span></a>
             <a href="{{ u_fin }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_fin %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">💰 <span>Financeiro</span></a>
             <a href="{{ u_rel }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_rel %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">📈 <span>Relatórios</span></a>
+            <a href="{{ u_conhecimento }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_conhecimento %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">Base de conhecimento</a>
             {% url 'assistente' as u_ia %}
             <a href="{{ u_ia }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl {% if path == u_ia %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">🤖 <span>Assistente IA</span></a>
             {% if is_admin %}

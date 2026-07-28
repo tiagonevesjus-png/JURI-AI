@@ -64,6 +64,10 @@ media/
 staticfiles/
 lancedb/
 backups/
+# Artefatos temporários gerados por testes de assinatura e um nome reservado
+# criado por alguns comandos no Windows.
+output/
+NUL
 diagnosticos/
 data/google-oauth-token.json
 # Estado local, códigos OAuth e logs de integrações; manter apenas o marcador da pasta.
